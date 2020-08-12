@@ -1,6 +1,6 @@
 {
   "name": "declarapi-runtime",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Declarative API runtime",
   "engines": {
     "node": ">=13.0.0",
@@ -33,7 +33,6 @@
     "standard": "standardx **/*.ts",
     "standard:fix": "standardx --fix **/*.ts",
     "test:coverage": "npm run build:commonjs && npm run standard && jest --coverage"
-
   },
   "standardx": {
     "env": [
@@ -57,7 +56,6 @@
     "moduleNameMapper": {
       "yaschva$": "yaschva/cjs",
       "microtil$": "microtil/cjs"
-
     }
   },
   "author": "mmagyar.com",
@@ -72,7 +70,7 @@
     "@types/uuid": "^8.3.0",
     "@typescript-eslint/eslint-plugin": "^3.9.0",
     "@typescript-eslint/parser": "^3.9.0",
-    "jest": "^26.3.0",
+    "jest": "^26.4.0",
     "standardx": "^5.0.0",
     "typescript": "^3.9.7"
   },
