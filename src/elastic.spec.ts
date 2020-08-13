@@ -45,7 +45,7 @@ describe('elasticsearch data connector', () => {
     name: 'test',
     returns: { b: 'string' },
     handle: async (obj) => ({ b: obj.value }),
-    type: 'get',
+    type: 'GET',
     authentication: false
   })
 

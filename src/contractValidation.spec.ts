@@ -9,7 +9,7 @@ describe('contractProcessor', () => {
       name: 'test',
       returns: { b: 'string' },
       handle: async (obj) => ({ b: obj.a }),
-      type: 'get',
+      type: 'GET',
       authentication: false
     }
   })
@@ -17,7 +17,7 @@ describe('contractProcessor', () => {
   it('can add validation to a single contract', () => {
     const result = addValidationToContract(input())
     expect(result.test.contract.name).toEqual('test')
-    expect(result.test.contract.type).toEqual('get')
+    expect(result.test.contract.type).toEqual('GET')
     expect(result.test.contract.authentication).toEqual(false)
     expect(result.test.handle).not.toEqual(input().test.handle)
     expect(typeof result.test.handle).toBe('function')

@@ -88,7 +88,7 @@ export const registerRestMethods = (input:ContractWithValidatedHandler):Expressa
           await x.handle(body, { ...user, authentication }, x.contract)
         if (isContractInError(result)) { return { code: result.code, response: result } }
 
-        const statusCode = x.contract.type === 'post' ? 201 : 200
+        const statusCode = x.contract.type === 'POST' ? 201 : 200
         if (id && Array.isArray(result.result)) {
           if (result.result.length > 1) { console.warn('Results contained more than one entry for single return by id') }
 
@@ -116,7 +116,7 @@ export const registerRestMethods = (input:ContractWithValidatedHandler):Expressa
       contract: x.contract,
       handle,
       handler: async (req:reqType, res:resType) => {
-        const body = x.contract.type === 'get' ? req.query : req.body
+        const body = x.contract.type === 'GET' ? req.query : req.body
 
         const result = await handle(body, req.params?.id, req.user)
         res.status(result.code).json(result.response)
