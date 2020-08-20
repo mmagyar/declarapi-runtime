@@ -94,7 +94,7 @@ describe('contractProcessor', () => {
     modifiedHandler.test.handle = undefined
     const result = await addValidationToContract(modifiedHandler).test.handle({ a: 'foo' }, auth, modifiedHandler.test)
     if (isContractInError(result)) {
-      expect(result.code).toBe(501)
+      expect(result.status).toBe(501)
     } else { throw new Error('Test failed') }
   })
 })

@@ -1,67 +1,68 @@
 import { validate, ValidationResult } from 'yaschva'
-import { map } from 'microtil'
 import { ContractType, AuthInput, HandlerAuth } from './globalTypes.js'
 
-export type ContractResultError = {
-  errorType: string; data: any; code: number; errors: ValidationResult|string[];
-};
+export type ErrorResponse ={
+  errorType: string; data: any; status: number; errors: ValidationResult| string[];}
 
-export type ContractResultSuccess = {result: object}
-export type ContractResult = ContractResultError | ContractResultSuccess;
+export const errorStructure = (status:number, errorType:string, errors:ValidationResult| string[] | string, data:any):{status:number, response: ErrorResponse} => ({
+  status,
+  response: {
+    status, errorType, data, errors: typeof errors === 'string' ? [errors] : errors
+  }
+})
 
-export const isContractInError = (tbd: any): tbd is ContractResultError =>
+export type ContractResultSuccess = {result: any}
+export type ContractResult = ErrorResponse | ContractResultSuccess;
+
+export const isContractInError = (tbd: any): tbd is ErrorResponse =>
   Boolean(tbd.errors)
 
-export type ContractWithValidatedHandler = {
-  [key: string]: {
-    handle: (input: any, auth: HandlerAuth, contract: ContractType<any, any>) => Promise<ContractResult>;
-    contract: ContractType<any, any>
-  }
-};
+export type ContractWithValidatedHandler<IN, OUT> = {
+    handle: (input: any, auth: HandlerAuth, contract: ContractType<IN, OUT>) => Promise<ContractResult>;
+    contract: ContractType<IN, OUT>
+}
 
-export const addValidationToContract = (
-  contracts: { [key:string]: ContractType<any, any>},
+export const addValidationToContract = <IN, OUT>(
+  contract:ContractType<IN, OUT>,
   validateOutput:boolean = true
-): ContractWithValidatedHandler => {
-  return map(contracts, (value: ContractType<any, any>) => {
-    return {
-      contract: value,
-      handle: async (input: any, auth?:AuthInput): Promise<ContractResult> => {
-        const validationResult = validate(value.arguments, input)
-        if (validationResult.result === 'fail') {
-          return {
-            errorType: 'Input validation failed',
-            data: input,
-            code: 400,
-            errors: validationResult
-          }
-        }
-
-        if (value.handle) {
-          const result = await value.handle(input,
-            { ...auth, authentication: value.authentication }, value)
-          if (validateOutput) {
-            const outputValidation = validate(value.returns, result)
-            if (outputValidation.result === 'fail') {
-              return {
-                errorType: 'Unexpected result from function',
-                data: result,
-                code: 500,
-                errors: outputValidation
-              }
-            }
-          }
-          return { result }
-        }
+): ContractWithValidatedHandler<IN, OUT> => {
+  return {
+    contract: contract,
+    handle: async (input: any, auth?:AuthInput): Promise<ContractResult> => {
+      const validationResult = validate(contract.arguments, input)
+      if (validationResult.result === 'fail') {
         return {
-          errorType: 'Not implemented',
-          data: value.name,
-          code: 501,
-          errors: [`Handler for ${value.name} was not defined`]
+          errorType: 'Input validation failed',
+          data: input,
+          status: 400,
+          errors: validationResult
         }
       }
+
+      if (contract.handle) {
+        const result = await contract.handle(input,
+          { ...auth, authentication: contract.authentication }, contract)
+        if (validateOutput) {
+          const outputValidation = validate(contract.returns, result)
+          if (outputValidation.result === 'fail') {
+            return {
+              errorType: 'Unexpected result from function',
+              data: result,
+              status: 500,
+              errors: outputValidation
+            }
+          }
+        }
+        return { result }
+      }
+      return {
+        errorType: 'Not implemented',
+        data: contract.name,
+        status: 501,
+        errors: [`Handler for ${contract.name} was not defined`]
+      }
     }
-  })
+  }
 }
 
 export default addValidationToContract

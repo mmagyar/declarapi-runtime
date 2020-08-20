@@ -1,74 +1,37 @@
-import registerRestMethods, { reqType } from './registerRestMethods.js'
-import { ContractWithValidatedHandler, ContractResult, ContractResultError, ContractResultSuccess } from './contractValidation.js'
-import { AuthInput } from './globalTypes.js'
+import registerRestMethods from './registerRestMethods.js'
+import { ContractResult, ErrorResponse, ContractResultSuccess, ContractWithValidatedHandler } from './contractValidation.js'
 describe('registerRestMethods', () => {
-  const input = ():ContractWithValidatedHandler => ({
-    test: {
-      contract: { name: 'test', authentication: false, manageFields: {}, arguments: {}, returns: {}, type: 'GET' },
-      handle: async (data: { a: string }): Promise<ContractResult> =>
-        ({ result: { ...data } })
-    }
+  const input = ():ContractWithValidatedHandler<any, any> => ({
+    contract: { name: 'test', authentication: false, manageFields: {}, arguments: {}, returns: {}, type: 'GET' },
+    handle: async (data: { a: string }): Promise<ContractResult> =>
+      ({ result: { ...data } })
   })
   it('transforms correctly', () => {
     const result = registerRestMethods(input())
-    expect(result[0].route).toBe('/api/test/:id?')
-    expect(result[0].method).toBe('GET')
-    expect(typeof result[0].handler).toBe('function')
+    expect(result.route).toBe('/api/test/:id?')
+    expect(result.method).toBe('GET')
+    expect(typeof result.handle).toBe('function')
   })
 
-  const reqMock = (
-    query: {[key: string]: any} = {},
-    body: {[key: string]: any} = {},
-    id?: string,
-    user? :AuthInput
-  ):reqType => ({ query, body, params: { id }, user })
-
-  type ResultMockType = {
-    jsonMock: jest.Mock<any, any>;
-    statusMock: jest.Mock<{ json: jest.Mock<any, any>; }, []>;
-    chainedMock: { status: jest.Mock<{ json: jest.Mock<any, any>; }, []>;
-    };
-}
-  const resMock = ():ResultMockType => {
-    const jsonMock = jest.fn()
-    const statusMock = jest.fn(() => ({ json: jsonMock }))
-    return {
-      jsonMock,
-      statusMock,
-      chainedMock: { status: statusMock }
-    }
-  }
-
-  const expectResult = (res: ResultMockType, status:number, output:any) => {
-    expect(res.statusMock).toBeCalledWith(status)
-    expect(res.jsonMock).toBeCalledWith(output)
-  }
   it('params and query is optional', async () => {
-    const result = registerRestMethods(input())
-    const res = resMock()
-    const req = reqMock({ a: 'sadf' })
-    delete req.params
-    delete req.query
-    await result[0].handler(req, res.chainedMock)
-    expectResult(res, 200, { })
+    const result = await registerRestMethods(input()).handle({ a: 'sadf' })
+    expect(result).toHaveProperty('status', 200)
   })
 
   describe('authentication handling', () => {
     it('happy path - no authentication', async () => {
-      const res = resMock()
-      await registerRestMethods(input())[0]
-        .handler(reqMock({ a: 'sadf' }), res.chainedMock)
-      expectResult(res, 200, { a: 'sadf' })
+      const result = await registerRestMethods(input())
+        .handle({ a: 'sadf' })
+      expect(result).toHaveProperty('status', 200)
+      expect(result).toHaveProperty('response', { a: 'sadf' })
     })
 
     it('happy path - with simple authentication', async () => {
       const data = input()
-      data.test.contract.authentication = true
-      const result = registerRestMethods(data)
-      const res = resMock()
-      const req = reqMock({ a: 'sadf' }, undefined, undefined, { permissions: [], sub: 'abc' })
-      await result[0].handler(req, res.chainedMock)
-      expectResult(res, 200, { a: 'sadf' })
+      data.contract.authentication = true
+      const result = await registerRestMethods(data).handle({ a: 'sadf' }, undefined, { permissions: [], sub: 'abc' })
+      expect(result).toHaveProperty('status', 200)
+      expect(result).toHaveProperty('response', { a: 'sadf' })
     })
 
     it('permissions can be undefined, equals empty array', async () => {
@@ -189,8 +152,8 @@ describe('registerRestMethods', () => {
 
   it('handles when the handle function returns a contract error', async () => {
     const data = input()
-    data.test.handle = async (): Promise<ContractResultError> =>
-      ({ errorType: 'contractError', data: {}, code: 500, errors: ['Testing errors'] })
+    data.test.handle = async (): Promise<ErrorResponse> =>
+      ({ errorType: 'contractError', data: {}, status: 500, errors: ['Testing errors'] })
     const res = resMock()
     await registerRestMethods(data)[0]
       .handler(reqMock({ a: 'sadf' }), res.chainedMock)
@@ -209,7 +172,7 @@ describe('registerRestMethods', () => {
         ({ result: [{ a: 'el1' }] })
       const res = resMock()
 
-      await registerRestMethods(data)[0]
+      await registerRestMethods(data)
         .handler(reqMock({ a: 'sadf' }, undefined, '3'), res.chainedMock)
       expectResult(res, 200, { a: 'el1' })
       expect(consoleWarnMock).not.toBeCalled()
