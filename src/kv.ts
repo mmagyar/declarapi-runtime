@@ -2,14 +2,15 @@ import { v4 as uuid } from 'uuid'
 import { HandlerAuth, ContractType, ManageableFields } from './globalTypes.js'
 import { RequestHandlingError } from './RequestHandlingError.js'
 import { memoryKV } from './memoryKv.js'
-import { KV, KVList, SuperMetaData } from './abstractKv.js'
+import { KV, KvListReturn, ListEntry } from './abstractKv.js'
 import Fuse from 'fuse.js'
 import { ValueTypes, ObjectType, isObj, isObjectMeta, isArray } from 'yaschva'
 import workerKv from './workerKv.js'
 
-type WorkerCache ={memory? :KV, worker?: KV}
+type WorkerCache ={memory? :KV, worker?: KV} & {[key:string]: KV}
 type WorkerTypes = keyof WorkerCache
 const clientInstance: WorkerCache = {}
+export const customKv:{[key:string]: () => KV} = {}
 export const client = (key:WorkerTypes):KV => clientInstance[key] || init(key)
 export const destroyClient = (key:WorkerTypes) => {
   delete clientInstance[key]
@@ -23,6 +24,10 @@ export const init = (key:WorkerTypes):KV => {
   if (key === 'memory') {
     clientInstance.memory = memoryKV()
     return clientInstance.memory
+  }
+
+  if (key in customKv) {
+    clientInstance[key] = customKv[key]()
   }
 
   throw new Error(`Unknown key value backend ${key}`)
@@ -58,12 +63,12 @@ export const get = async (
     return filterToAccess([result], auth, contract.manageFields)
   } else if (search) {
     const cacheId = `${index}:$Al'kesh:${auth.sub}`
-    let cached: object[]| string| undefined =
-      await client(type).get(cacheId).catch(x => { if (x.code === 404) return ''; else throw x })
+    let cached =
+      await client(type).get(cacheId, 'text').catch(x => { if (x.code === 404) return ''; else throw x })
     if (!cached) {
       cached = await get(type, index, contract, auth)
       const value = JSON.stringify(cached)
-      await client(type).put(cacheId, { value, metadata: { type: 'cache' } }, 120, 'ttl')
+      await client(type).put(cacheId, value, { metadata: { type: 'cache' }, expirationTtl: 120 })
     } else {
       cached = JSON.parse(cached)
     }
@@ -94,22 +99,21 @@ export const get = async (
   }
 
   const accessAll = authorizedByPermission(auth)
-  const listId : Promise<string|undefined>[] = []
+  const listId : Promise<object|null>[] = []
   let cursor
   do {
-    const result:KVList = await client(type).list(10, cursor, `${index}:records`)
-    if (result.success) {
-      result.result.forEach(async (x:SuperMetaData) => {
-        // Maybe prefix key with user id instead?
-        if (accessAll || (x.metadata as any)?.createdBy === auth.sub) {
-          listId.push(client(type).get(x.name))
-        }
-      })
-    }
-    cursor = result.result_info.cursor
+    const result:KvListReturn = await client(type).list({ limit: 10, cursor, prefix: `${index}:records` })
+    result.keys.forEach(async (x:ListEntry) => {
+      // Maybe prefix key with user id instead?
+      if (accessAll || (x.metadata as any)?.createdBy === auth.sub) {
+        listId.push(client(type).get(x.name, 'json'))
+      }
+    })
+
+    cursor = result.cursor
   } while (cursor)
 
-  return (await Promise.all(listId) as any).filter((x:any) => x !== undefined)
+  return (await Promise.all(listId) as any).filter((x:any) => x != null)
 }
 
 export const post = async <T extends {[key: string]: any}>(
@@ -135,7 +139,7 @@ Promise<T & any> => {
     throw new RequestHandlingError('Resource already exists', 409)
   }
   // TODO returned without the full id, that contains the index, or maybe always remove the index when returning?
-  await client(type).put(keyId(index, id), { value: newBody, metadata })
+  await client(type).put(keyId(index, id), newBody, { metadata })
 
   return newBody
 }
@@ -147,7 +151,7 @@ export const del = async (type: WorkerTypes, index: string, contract: ContractTy
     throw new RequestHandlingError('User has no right to delete this', 403)
   }
 
-  await client(type).destroy(keyId(index, id))
+  await client(type).delete(keyId(index, id))
   return result
 }
 
@@ -164,9 +168,9 @@ export const patch = async <T extends object, K extends object>(type: WorkerType
   }
 
   const key = keyId(index, id)
-  const meta:KVList = await client(type).list(1, undefined, key)
+  const { metadata } = await client(type).getWithMetadata(key)
 
-  await client(type).put(key, { value: newBody, metadata: meta.result[0].metadata })
+  await client(type).put(key, newBody, { metadata })
 
   return (await get(type, index, contract, auth, id) as any)[0]
 }
@@ -189,9 +193,9 @@ export const put = async <T extends object, K extends object>(
   }
 
   const key = keyId(index, id)
-  const meta:KVList = await client(type).list(1, undefined, key)
+  const { metadata } = await client(type).getWithMetadata(key)
 
-  await client(type).put(key, { value: newBody, metadata: meta.result[0]?.metadata })
+  await client(type).put(key, newBody, { metadata })
 
   return (await get(type, index, contract, auth, id) as any)[0]
 }

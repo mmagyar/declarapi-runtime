@@ -1,12 +1,25 @@
-import { KVList, ResponseMeta, SuperMetaData, KV, ValueType } from './abstractKv'
+import { KvListReturn, KV, ValueType, ListEntry, GetResultType, KvDataTypes } from './abstractKv'
+
+function ab2str (buf:ArrayBuffer):string {
+  return String.fromCharCode.apply(null, (new Uint16Array(buf) as any))
+}
+function str2ab (str:string):ArrayBuffer {
+  var buf = new ArrayBuffer(str.length * 2) // 2 bytes for each char
+  var bufView = new Uint16Array(buf)
+  for (var i = 0, strLen = str.length; i < strLen; i++) {
+    bufView[i] = str.charCodeAt(i)
+  }
+  return buf
+}
 
 export const memoryKV = (): KV => {
   const db = new Map<string, string>()
-  const dbMeta = new Map<string, SuperMetaData>()
+  const dbMeta = new Map<string, ListEntry>()
 
-  const list = async (limit?: number, cursor?: string, prefix?: string):Promise<KVList> => {
+  const list = async (options?: {limit?: number, cursor?: string, prefix?: string}):Promise<KvListReturn> => {
     let currentCursor = ''
     let cursorFound = false
+    const { cursor, limit, prefix } = options || {}
     const result = []
     for (const value of dbMeta.values()) {
       if (cursor && !cursorFound) {
@@ -26,53 +39,46 @@ export const memoryKV = (): KV => {
       }
     }
     return {
-      success: true,
-      errors: [],
-      messages: [],
-      result,
-      result_info: {
-        count: dbMeta.size,
-        cursor: currentCursor
-      }
+      keys: result,
+      cursor: currentCursor,
+      list_complete: true
     }
   }
-  const get = async (key:string) : Promise<ValueType | undefined> => {
-    return db.get(key)
-  }
-  const put = async (key:string, value:ValueType | {value:ValueType, metadata: any}, expiration?: number, expirationType: 'time' | 'ttl' = 'time'): Promise<ResponseMeta> => {
-    let exp
-    if (expiration) {
-      exp = expirationType === 'time' ? expiration : (Math.round(Date.now() / 1000) + expiration)
-    }
+  const get = async <T extends KvDataTypes>(key:string, type?:T) : Promise<GetResultType<T>|null> => {
+    const returned = db.get(key)
 
-    if (typeof value === 'object') {
-      db.set(key, value.value)
-      dbMeta.set(key, { name: key, metadata: value.metadata, expiration: exp })
+    if (returned == null) return null
+
+    if (type === 'json') return JSON.parse(returned)
+    else if (type === 'arrayBuffer') return str2ab(returned) as GetResultType<T>
+    else if (type === 'stream') return returned == null ? null : JSON.parse(returned)
+
+    return returned as GetResultType<T>
+  }
+  const put = async (key:string, value:ValueType, additional?: {metadata?:any, expiration?:number, expirationTtl?:number}): Promise<void> => {
+    const { expiration, expirationTtl } = additional || {}
+    const exp = expiration || (expirationTtl ? (Date.now() / 1000) + expirationTtl : undefined)
+    if (value instanceof ArrayBuffer) {
+      db.set(key, ab2str(value))
     } else {
-      db.set(key, value)
-      dbMeta.set(key, { name: key, metadata: {}, expiration: exp })
+      db.set(key, typeof value === 'string' ? value : JSON.stringify(value))
     }
-
-    return {
-      success: true,
-      errors: [],
-      messages: []
-    }
+    if (additional) { dbMeta.set(key, { name: key, metadata: additional.metadata, expiration: exp }) }
   }
-  const destroy = async (key:string | string[]):Promise<ResponseMeta> => {
-    if (Array.isArray(key)) key.forEach(destroy)
-    else {
-      db.delete(key)
-      dbMeta.delete(key)
-    }
+
+  const destroy = async (key:string):Promise<void> => {
+    db.delete(key)
+    dbMeta.delete(key)
+  }
+
+  const getWithMetadata = async (key:string) : Promise<{value:string | null, metadata: object | null}> => {
     return {
-      success: true,
-      errors: [],
-      messages: []
+      value: await get(key, 'text'),
+      metadata: (await list({ prefix: key }))?.keys[0]?.metadata || null
     }
   }
 
-  return { list, get, put, destroy }
+  return { list, get, put, delete: destroy, getWithMetadata }
 }
 
 export default memoryKV
