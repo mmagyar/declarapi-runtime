@@ -1,4 +1,4 @@
-import { KVList, ResponseMeta, KV, ValueType } from './abstractKv.js'
+import { KV, ValueType, KvListReturn, KvDataTypes, GetResultType } from './abstractKv.js'
 import FormData from 'form-data'
 import fetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { RequestHandlingError } from './RequestHandlingError.js'
@@ -28,16 +28,14 @@ const fetchWithThrow = async (
   throwOnKeyNotFound: boolean = true
 ): Promise<any> => {
   const fetched = fetchLimited(url, init)
-  const [errorCode, result]:[number, ResponseMeta & {result:ValueType}] =
-  await fetched.then(async x => [x.status, await x.json()])
+  const [errorCode, result]:[number, string] =
+  await fetched.then(async x => [x.status, await x.text()])
 
-  // console.log('RET', errorCode, result, init?.method, url)
-  if (errorCode !== 200 && !result.success) {
-    const errors = Array.isArray(result.errors) ? result.errors : [result]
-    if (!throwOnKeyNotFound && errorCode === 404 && errors.find(x => x.code === 10009)) {
+  if (errorCode >= 400) {
+    if (!throwOnKeyNotFound && errorCode === 404) {
       return undefined
     }
-    throw new RequestHandlingError(JSON.stringify(errors?.length === 1 ? errors[0] : errors), errorCode)
+    throw new RequestHandlingError(result, errorCode)
   }
   return result
 }
@@ -96,7 +94,9 @@ export const workerKv = (): KV => {
   const baseUrl = 'https://api.cloudflare.com/client/v4'
   const namespaced = `${baseUrl}/accounts/${accountIdentifier}/storage/kv/namespaces/${namespaceIdentifier}`
 
-  const list = async (limit?: number, cursor?: string, prefix?: string):Promise<KVList> => {
+  const list = async (options?: {limit?: number, cursor?: string, prefix?: string}):Promise<KvListReturn> => {
+    const { cursor, limit, prefix } = options || {}
+
     const params = []
     if (limit)params.push(`limit=${limit < 10 ? 10 : limit}`)
     if (cursor)params.push(`cursor=${cursor}`)
@@ -104,25 +104,42 @@ export const workerKv = (): KV => {
 
     const url = `${namespaced}/keys${params.length ? '?' + params.join('&') : ''}`
 
-    return fetchWithThrow(url, { headers })
+    const response = await fetchWithThrow(url, { headers })
+    if (!response.success) {
+      throw new Error(JSON.stringify(response))
+    }
+    return {
+      cursor: response.result_info.cursor,
+      keys: response.result,
+      list_complete: !response.result_info.cursor || response.result.length === 0
+    }
   }
 
-  const get = async (key:string) : Promise<ValueType | undefined> =>
-    fetchWithThrow(`${namespaced}/values/${key}`, { headers })
+  const get = async <T extends KvDataTypes>(key:string, type?:T) : Promise<GetResultType<T>|null> => {
+    if (type !== 'text' || type !== 'json') throw new Error('API only supports text type')
 
-  const put = async (key:string, value:ValueType | {value:ValueType, metadata: any}, expiration?: number, expirationType: 'time' | 'ttl' = 'time'): Promise<ResponseMeta> => {
+    const result = await fetchWithThrow(`${namespaced}/values/${key}`, { headers })
+    if (!result) return null
+
+    if (type === 'text') return result
+    return JSON.parse(result)
+  }
+
+  const put = async (key:string, value:ValueType, additional?: {metadata?:any, expiration?:number, expirationTtl?:number}): Promise<void> => {
+    const { expiration, expirationTtl, metadata } = additional || {}
+
     const form = new FormData()
 
-    if (typeof value === 'object') {
-      if (value.metadata) { form.append('metadata', JSON.stringify(value.metadata)) }
-      form.append('value', JSON.stringify(value.value))
+    if (metadata) { form.append('metadata', JSON.stringify(metadata)) }
+
+    if (typeof value === 'string') {
+      form.append('value', value)
     } else {
       form.append('value', JSON.stringify(value))
     }
-
     const params = []
-    if (expiration && expirationType === 'time')params.push(`expiration=${expiration}`)
-    else if (expiration)params.push(`expiration_ttl=${expiration}`)
+    if (expiration)params.push(`expiration=${expiration}`)
+    else if (expirationTtl)params.push(`expiration_ttl=${expirationTtl}`)
 
     const url = `${namespaced}/values/${key}${params.length ? '?' + params.join('&') : ''}`
 
@@ -133,7 +150,7 @@ export const workerKv = (): KV => {
     })
   }
 
-  const destroy = async (key:string | string[]):Promise<ResponseMeta> => {
+  const destroy = async (key:string | string[]):Promise<void> => {
     if (Array.isArray(key)) {
       return fetchWithThrow(`${namespaced}/bulk`, {
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -145,7 +162,14 @@ export const workerKv = (): KV => {
     return fetchWithThrow(`${namespaced}/values/${key}`, { headers, method: 'DELETE' })
   }
 
-  return { list, get, put, destroy }
+  const getWithMetadata = async (key:string) : Promise<{value:string | null, metadata: object | null}> => {
+    return {
+      value: await get(key, 'text'),
+      metadata: (await list({ prefix: key }))?.keys[0]?.metadata || null
+    }
+  }
+
+  return { list, get, put, delete: destroy, getWithMetadata }
 }
 
 export default workerKv
