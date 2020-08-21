@@ -2,6 +2,10 @@ import { ContractResult, isContractInError, ContractWithValidatedHandler, errorS
 import { HttpMethods, AuthInput, ContractType } from './globalTypes.js'
 import { map } from 'microtil'
 
+function isPrimitive (test:any):boolean {
+  return (test !== Object(test))
+};
+
 export type BodyType = { [key: string]: any} & {id?:string|string[]}
 
 export type HandleResponse = {status:number, response:any}
@@ -49,15 +53,22 @@ const processHandle = (x: ContractWithValidatedHandler<any, any>) => async (body
 
     const statusCode = x.contract.type === 'POST' ? 201 : 200
     if (id && Array.isArray(result.result)) {
-      if (result.result.length > 1) { console.warn('Results contained more than one entry for single return by id') }
+      if (result.result.length > 1) {
+        return errorStructure(500,
+          'handleError',
+          'Response for a single id request contained multiple responses',
+          result.result)
+      }
 
       return { status: statusCode, response: result.result[0] }
     }
     return { status: statusCode, response: result.result }
   } catch (e) {
-    const data = e && map(e, y => y)
-    const code = e?.code || e?.statusCode || 500
-    return errorStructure(code >= 400 && code < 600 ? code : 500, e.name || 'exception', e?.message, data)
+    const data = (isPrimitive(e) || !e) ? e : map(e, y => y)
+    const code = (typeof e?.code === 'number' ? e.code : undefined) ||
+    (typeof e?.statusCode === 'number' ? e.statusCode : undefined) ||
+    (typeof e?.status === 'number' ? e.status : undefined) || 500
+    return errorStructure(code >= 400 && code < 600 ? code : 500, e?.name || 'exception', e?.message || e?.toString() || 'unknown', data)
   }
 }
 export const registerRestMethods = <IN, OUT>(x:ContractWithValidatedHandler<IN, OUT>):HttpWrapped<IN, OUT> => {
