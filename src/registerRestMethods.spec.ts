@@ -141,11 +141,6 @@ describe('registerRestMethods', () => {
   })
 
   describe('only returns one element if id is given in params', () => {
-    const originalWarn = console.warn
-    let consoleWarnMock = jest.fn()
-    beforeEach(() => { consoleWarnMock = console.warn = jest.fn() })
-    afterEach(() => { console.warn = originalWarn })
-
     it('extracts the first element if an array is returned', async () => {
       const data = input()
       data.handle = async (): Promise<ContractResultSuccess> =>
@@ -154,7 +149,6 @@ describe('registerRestMethods', () => {
       const result = await registerRestMethods(data).handle({ a: 'sadf' }, '3')
       expect(result).toHaveProperty('status', 200)
       expect(result).toHaveProperty('response', { a: 'el1' })
-      expect(consoleWarnMock).not.toBeCalled()
     })
 
     it('returns error if an array with many elements is returned for a direct id request', async () => {
