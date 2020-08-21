@@ -65,9 +65,9 @@ const processHandle = (x: ContractWithValidatedHandler<any, any>) => async (body
     return { status: statusCode, response: result.result }
   } catch (e) {
     const data = (isPrimitive(e) || !e) ? e : map(e, y => y)
-    const code = (typeof e?.code === 'number' ? e.code : undefined) ||
-    (typeof e?.statusCode === 'number' ? e.statusCode : undefined) ||
-    (typeof e?.status === 'number' ? e.status : undefined) || 500
+    const code = (typeof e?.status === 'number' ? e.status : undefined) ||
+      (typeof e?.statusCode === 'number' ? e.statusCode : undefined) ||
+      (typeof e?.code === 'number' ? e.code : undefined) || 500
     return errorStructure(code >= 400 && code < 600 ? code : 500, e?.name || 'exception', e?.message || e?.toString() || 'unknown', data)
   }
 }

@@ -28,14 +28,14 @@ const fetchWithThrow = async (
   throwOnKeyNotFound: boolean = true
 ): Promise<any> => {
   const fetched = fetchLimited(url, init)
-  const [errorCode, result]:[number, string] =
+  const [status, result]:[number, string] =
   await fetched.then(async x => [x.status, await x.text()])
 
-  if (errorCode >= 400) {
-    if (!throwOnKeyNotFound && errorCode === 404) {
+  if (status >= 400) {
+    if (!throwOnKeyNotFound && status === 404) {
       return undefined
     }
-    throw new RequestHandlingError(result, errorCode)
+    throw new RequestHandlingError(result, status)
   }
   return result
 }

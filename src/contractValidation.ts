@@ -4,10 +4,10 @@ import { ContractType, AuthInput, HandlerAuth } from './globalTypes.js'
 export type ErrorResponse ={
   errorType: string; data: any; status: number; errors: ValidationResult| string[];}
 
-export const errorStructure = (status:number, errorType:string, errors:ValidationResult| string[] | string, data:any):{status:number, response: ErrorResponse} => ({
+export const errorStructure = (status:number, errorType:string, errors: string, data:any):{status:number, response: ErrorResponse} => ({
   status,
   response: {
-    status, errorType, data, errors: typeof errors === 'string' ? [errors] : errors
+    status, errorType, data, errors: [errors]
   }
 })
 
