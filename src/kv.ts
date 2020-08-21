@@ -53,7 +53,7 @@ export const get = async (
   if (Array.isArray(id)) {
     if (id.length === 0) return []
     const docs = (await Promise.all(id.map(x => client(type).get(keyId(index, x))
-      .catch(x => { if (x.code === 404) return undefined; else throw x }))))
+      .catch(x => { if (x.status === 404) return undefined; else throw x }))))
       .filter(x => x !== undefined)
     return filterToAccess(docs, auth, contract.manageFields)
   } else if (id) {
@@ -64,7 +64,7 @@ export const get = async (
   } else if (search) {
     const cacheId = `${index}:$Al'kesh:${auth.sub}`
     let cached =
-      await client(type).get(cacheId, 'text').catch(x => { if (x.code === 404) return ''; else throw x })
+      await client(type).get(cacheId, 'text').catch(x => { if (x.status === 404) return ''; else throw x })
     if (!cached) {
       cached = await get(type, index, contract, auth)
       const value = JSON.stringify(cached)
@@ -134,7 +134,7 @@ Promise<T & any> => {
   }
   // Maybe skip check if it is generated?
   const got = (await client(type).get(keyId(index, id))
-    .catch(x => { if (x.code === 404) return undefined; else throw x }))
+    .catch(x => { if (x.status === 404) return undefined; else throw x }))
   if (got) {
     throw new RequestHandlingError('Resource already exists', 409)
   }

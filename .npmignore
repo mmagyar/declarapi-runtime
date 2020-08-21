@@ -7,3 +7,4 @@ node_modules
 *.tgz
 .gitignore
 .npmignore
+*.spec.js

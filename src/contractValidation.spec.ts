@@ -2,40 +2,39 @@ import { addValidationToContract, isContractInError } from './contractValidation
 import { ContractType } from './globalTypes.js'
 describe('contractProcessor', () => {
   const auth = { authentication: false }
-  const input: ()=>{test: ContractType<{a:string}, {b:string}>} = () => ({
-    test: {
-      arguments: { a: 'string' },
-      manageFields: {},
-      name: 'test',
-      returns: { b: 'string' },
-      handle: async (obj) => ({ b: obj.a }),
-      type: 'GET',
-      authentication: false
-    }
+  const input: ()=> ContractType<{a:string}, {b:string}> = () => ({
+    arguments: { a: 'string' },
+    manageFields: {},
+    name: 'test',
+    returns: { b: 'string' },
+    handle: async (obj) => ({ b: obj.a }),
+    type: 'GET',
+    authentication: false
+
   })
 
   it('can add validation to a single contract', () => {
     const result = addValidationToContract(input())
-    expect(result.test.contract.name).toEqual('test')
-    expect(result.test.contract.type).toEqual('GET')
-    expect(result.test.contract.authentication).toEqual(false)
-    expect(result.test.handle).not.toEqual(input().test.handle)
-    expect(typeof result.test.handle).toBe('function')
+    expect(result.contract.name).toEqual('test')
+    expect(result.contract.type).toEqual('GET')
+    expect(result.contract.authentication).toEqual(false)
+    expect(result.handle).not.toEqual(input().handle)
+    expect(typeof result.handle).toBe('function')
   })
 
   it('runs the defined handler - happy path', async () => {
     const contracts = input()
-    expect(await addValidationToContract(contracts).test.handle({ a: 'foo' }, auth, contracts.test))
+    expect(await addValidationToContract(contracts).handle({ a: 'foo' }, auth, contracts))
       .toStrictEqual({ result: { b: 'foo' } })
   })
 
   it('runs the defined handler - input validation error', async () => {
     const testData = input()
-    const ogHandle = testData.test.handle = jest.fn(testData.test.handle)
-    const handle = jest.fn(addValidationToContract(testData).test.handle)
-    expect(await handle({ x: 'foo' }, auth, testData.test))
+    const ogHandle = testData.handle = jest.fn(testData.handle)
+    const handle = jest.fn(addValidationToContract(testData).handle)
+    expect(await handle({ x: 'foo' }, auth, testData))
       .toStrictEqual({
-        code: 400,
+        status: 400,
         data: { x: 'foo' },
         errorType: 'Input validation failed',
         errors: {
@@ -52,10 +51,10 @@ describe('contractProcessor', () => {
 
   it('runs the defined handler - output validation error', async () => {
     const modifiedHandler = input()
-    const ogHandle = modifiedHandler.test.handle = jest.fn((args:any):any => ({ z: args.a }))
-    expect(await addValidationToContract(modifiedHandler).test.handle({ a: 'foo' }, auth, modifiedHandler.test))
+    const ogHandle = modifiedHandler.handle = jest.fn((args:any):any => ({ z: args.a }))
+    expect(await addValidationToContract(modifiedHandler).handle({ a: 'foo' }, auth, modifiedHandler))
       .toStrictEqual({
-        code: 500,
+        status: 500,
         data: { z: 'foo' },
         errorType: 'Unexpected result from function',
         errors: {
@@ -71,18 +70,18 @@ describe('contractProcessor', () => {
 
   it('runs the defined handler - output validation can be turned off', async () => {
     const modifiedHandler = input()
-    const ogHandle = modifiedHandler.test.handle = jest.fn((args:any):any => ({ z: args.a }))
-    expect(await addValidationToContract(modifiedHandler, false).test.handle({ a: 'foo' }, auth, modifiedHandler.test))
+    const ogHandle = modifiedHandler.handle = jest.fn((args:any):any => ({ z: args.a }))
+    expect(await addValidationToContract(modifiedHandler, false).handle({ a: 'foo' }, auth, modifiedHandler))
       .toStrictEqual({ result: { z: 'foo' } })
     expect(ogHandle).toBeCalled()
   })
 
   it('runs a fully formed error when the handler is undefined', async () => {
     const modifiedHandler = input()
-    modifiedHandler.test.handle = undefined
-    expect(await addValidationToContract(modifiedHandler).test.handle({ a: 'foo' }, auth, modifiedHandler.test))
+    modifiedHandler.handle = undefined
+    expect(await addValidationToContract(modifiedHandler).handle({ a: 'foo' }, auth, modifiedHandler))
       .toStrictEqual({
-        code: 501,
+        status: 501,
         data: 'test',
         errorType: 'Not implemented',
         errors: ['Handler for test was not defined']
@@ -91,10 +90,10 @@ describe('contractProcessor', () => {
 
   it('can identify if contract returned an error', async () => {
     const modifiedHandler = input()
-    modifiedHandler.test.handle = undefined
-    const result = await addValidationToContract(modifiedHandler).test.handle({ a: 'foo' }, auth, modifiedHandler.test)
+    modifiedHandler.handle = undefined
+    const result = await addValidationToContract(modifiedHandler).handle({ a: 'foo' }, auth, modifiedHandler)
     if (isContractInError(result)) {
-      expect(result.code).toBe(501)
+      expect(result.status).toBe(501)
     } else { throw new Error('Test failed') }
   })
 })
