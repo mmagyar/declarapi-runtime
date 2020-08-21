@@ -52,19 +52,19 @@ export const get = async (
 ): Promise<any> => {
   if (Array.isArray(id)) {
     if (id.length === 0) return []
-    const docs = (await Promise.all(id.map(x => client(type).get(keyId(index, x))
-      .catch(x => { if (x.status === 404) return undefined; else throw x }))))
-      .filter(x => x !== undefined)
+    const docs = (await Promise.all(id.map(x => client(type).get(keyId(index, x)))))
+      .filter(x => x != null)
     return filterToAccess(docs, auth, contract.manageFields)
   } else if (id) {
     const result = await client(type).get(keyId(index, id))
     if (!result) throw new RequestHandlingError('Key not found', 404)
     /// Maybe check filtered and throw 403 when not found
-    return filterToAccess([result], auth, contract.manageFields)
+    const filtered = filterToAccess([result], auth, contract.manageFields)
+    if (filtered.length === 0) throw new RequestHandlingError('Forbidden', 403)
+    return filtered
   } else if (search) {
     const cacheId = `${index}:$Al'kesh:${auth.sub}`
-    let cached =
-      await client(type).get(cacheId, 'text').catch(x => { if (x.status === 404) return ''; else throw x })
+    let cached = await client(type).get(cacheId, 'text')
     if (!cached) {
       cached = await get(type, index, contract, auth)
       const value = JSON.stringify(cached)
@@ -133,8 +133,7 @@ Promise<T & any> => {
     metadata.createdBy = auth.sub
   }
   // Maybe skip check if it is generated?
-  const got = (await client(type).get(keyId(index, id))
-    .catch(x => { if (x.status === 404) return undefined; else throw x }))
+  const got = await client(type).get(keyId(index, id))
   if (got) {
     throw new RequestHandlingError('Resource already exists', 409)
   }
