@@ -52,11 +52,11 @@ export const get = async (
 ): Promise<any> => {
   if (Array.isArray(id)) {
     if (id.length === 0) return []
-    const docs = (await Promise.all(id.map(x => client(type).get(keyId(index, x)))))
+    const docs = (await Promise.all(id.map(x => client(type).get(keyId(index, x), 'json'))))
       .filter(x => x != null)
     return filterToAccess(docs, auth, contract.manageFields)
   } else if (id) {
-    const result = await client(type).get(keyId(index, id))
+    const result = await client(type).get(keyId(index, id), 'json')
     if (!result) throw new RequestHandlingError('Key not found', 404)
     /// Maybe check filtered and throw 403 when not found
     const filtered = filterToAccess([result], auth, contract.manageFields)
