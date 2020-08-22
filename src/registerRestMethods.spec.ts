@@ -15,7 +15,7 @@ describe('registerRestMethods', () => {
   })
   it('transforms correctly', () => {
     const result = registerRestMethods(input())
-    expect(result.route).toBe('/api/test/:id?')
+    expect(result.route).toBe('/api/test')
     expect(result.method).toBe('GET')
     expect(typeof result.handle).toBe('function')
   })
