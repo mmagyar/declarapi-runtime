@@ -48,5 +48,10 @@
     "**/.fusebox/": true,
     "**/.dynamodb/": true,
     "**/.tern-port": true
-  }
+  },
+  "cSpell.words": [
+    "camelcase",
+    "declarapi",
+    "standardx"
+  ]
 }

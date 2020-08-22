@@ -1,6 +1,6 @@
 import elastic from '@elastic/elasticsearch'
 import { v4 as uuid } from 'uuid'
-import { HandlerAuth, ContractType, ManageableFields } from './globalTypes.js'
+import { AuthInput, ContractType, ManageableFields, AuthType } from './globalTypes.js'
 import { RequestHandlingError } from './RequestHandlingError.js'
 import { mapFilter } from 'microtil'
 type Client = elastic.Client
@@ -34,19 +34,19 @@ export const init = () => {
 
 export const info = () => client().info()
 export const defaultSize = 1000
-const authorizedByPermission = (auth:HandlerAuth) =>
-  typeof auth.authentication === 'boolean' ||
-  auth.authentication.some(x => (auth.permissions || []).some(y => x === y))
+const authorizedByPermission = (auth:AuthType, authInput:AuthInput) =>
+  typeof auth === 'boolean' ||
+  auth.some(x => (authInput.permissions || []).some(y => x === y))
 
 const getUserIdFields = (fields:ManageableFields):string[] => Object.entries(fields).filter(x => x[1]).map(x => x[0])
 
-const filterToAccess = (input:any[], auth:HandlerAuth, fields:ManageableFields):any[] =>
-  authorizedByPermission(auth) ? input : input.filter((x:any) => getUserIdFields(fields).some(y => x[y] === auth.sub))
+const filterToAccess = (input:any[], auth:AuthType, authInput:AuthInput, fields:ManageableFields):any[] =>
+  authorizedByPermission(auth, authInput) ? input : input.filter((x:any) => getUserIdFields(fields).some(y => x[y] === authInput.sub))
 
 export const get = async (
   indexName: string,
   contract: ContractType<any, any>,
-  auth:HandlerAuth,
+  authInput:AuthInput,
   id?: string | string[] | null,
   search?: string | null
 ): Promise<any> => {
@@ -56,7 +56,7 @@ export const get = async (
     bool: {
       should: getUserIdFields(manageFields).map(userIdField => {
         const r:any = { term: { } }
-        r.term[userIdField] = auth.sub
+        r.term[userIdField] = authInput.sub
         return r
       })
     }
@@ -65,10 +65,10 @@ export const get = async (
   if (Array.isArray(id)) {
     if (id.length === 0) return []
     const { body: { docs } } = await client().mget({ index, body: { ids: id } })
-    return filterToAccess(mapFilter(docs, (x: any) => x._source), auth, manageFields)
+    return filterToAccess(mapFilter(docs, (x: any) => x._source), contract.authentication, authInput, manageFields)
   } else if (id) {
     const { body } = await client().get({ index, id })
-    return filterToAccess([body._source], auth, manageFields)
+    return filterToAccess([body._source], contract.authentication, authInput, manageFields)
   } else if (search) {
     const queryString = {
       query: {
@@ -78,21 +78,21 @@ export const get = async (
       }
 
     }
-    if (!authorizedByPermission(auth)) queryString.query.bool.must.push(userIdFilter)
+    if (!authorizedByPermission(contract.authentication, authInput)) queryString.query.bool.must.push(userIdFilter)
     const all = await client().search({ index, body: queryString, size: defaultSize })
     return new Array(all.body.hits.hits).flatMap((y: any) => y.map((x: any) => x._source))
   }
 
   const searchAll:any = { index, size: defaultSize }
-  if (!authorizedByPermission(auth)) { searchAll.body = { query: userIdFilter } }
+  if (!authorizedByPermission(contract.authentication, authInput)) { searchAll.body = { query: userIdFilter } }
   const all = await client().search(searchAll)
   const result = new Array(all.body.hits.hits).flatMap((y: any) => y.map((x: any) => x._source))
   return result
 }
 export const post = async <T extends {[key: string]: any}>(index: string, contract: ContractType<T, any>,
-  auth:HandlerAuth, body: T):
+  auth:AuthInput, body: T):
 Promise<T & any> => {
-  if (!authorizedByPermission(auth)) throw new RequestHandlingError('User not authorized to POST', 403)
+  if (!authorizedByPermission(contract.authentication, auth)) throw new RequestHandlingError('User not authorized to POST', 403)
   const id = body.id || uuid()
   const newBody: any = { ...body }
   newBody.id = id
@@ -111,7 +111,7 @@ Promise<T & any> => {
 }
 
 export const del = async (index: string, contract: ContractType<any, any>,
-  auth:HandlerAuth, id: string|string[]): Promise<any> => {
+  auth:AuthInput, id: string|string[]): Promise<any> => {
   if (Array.isArray(id)) return (await Promise.all(id.map(x => del(index, contract, auth, x)))).map(x => x[0])
   const result = await get(index, contract, auth, id)
   if (!result || result.length === 0) {
@@ -124,7 +124,7 @@ export const del = async (index: string, contract: ContractType<any, any>,
 }
 
 export const patch = async <T extends object, K extends object>(index: string, contract: ContractType< T, K>,
-  auth:HandlerAuth, body: T, id: string
+  auth:AuthInput, body: T, id: string
 ): Promise<K> => {
   const result = await get(index, contract, auth, id)
   if (!result || result.length === 0) {
@@ -141,7 +141,7 @@ export const patch = async <T extends object, K extends object>(index: string, c
 }
 
 export const put = async <T extends object, K extends object>(index: string, contract: ContractType<T, K>,
-  auth:HandlerAuth, body: T, id: string
+  auth:AuthInput, body: T, id: string
 ): Promise<K> => {
   const result: any[] = await get(index, contract, auth, id)
   if (!result || result.length === 0) {
