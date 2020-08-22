@@ -1,7 +1,7 @@
 import { addValidationToContract, isContractInError } from './contractValidation.js'
 import { ContractType } from './globalTypes.js'
 describe('contractProcessor', () => {
-  const auth = { authentication: false }
+  const auth = { }
   const input: ()=> ContractType<{a:string}, {b:string}> = () => ({
     arguments: { a: 'string' },
     manageFields: {},

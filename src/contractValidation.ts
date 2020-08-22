@@ -1,5 +1,5 @@
 import { validate, ValidationResult } from 'yaschva'
-import { ContractType, AuthInput, HandlerAuth } from './globalTypes.js'
+import { ContractType, AuthInput } from './globalTypes.js'
 
 export type ErrorResponse ={
   errorType: string; data: any; status: number; errors: ValidationResult| string[];}
@@ -18,7 +18,7 @@ export const isContractInError = (tbd: any): tbd is ErrorResponse =>
   Boolean(tbd.errors)
 
 export type ContractWithValidatedHandler<IN, OUT> = {
-    handle: (input: any, auth: HandlerAuth, contract: ContractType<IN, OUT>) => Promise<ContractResult>;
+    handle: (input: any, auth: AuthInput, contract: ContractType<IN, OUT>) => Promise<ContractResult>;
     contract: ContractType<IN, OUT>
 }
 
@@ -40,8 +40,7 @@ export const addValidationToContract = <IN, OUT>(
       }
 
       if (contract.handle) {
-        const result = await contract.handle(input,
-          { ...auth, authentication: contract.authentication }, contract)
+        const result = await contract.handle(input, { ...auth }, contract)
         if (validateOutput) {
           const outputValidation = validate(contract.returns, result)
           if (outputValidation.result === 'fail') {

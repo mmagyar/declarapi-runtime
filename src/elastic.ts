@@ -1,6 +1,6 @@
 import elastic from '@elastic/elasticsearch'
 import { v4 as uuid } from 'uuid'
-import { AuthInput, ContractType, ManageableFields, AuthType } from './globalTypes.js'
+import { AuthInput, ContractType, ManageableFields, AuthenticationDefinition } from './globalTypes.js'
 import { RequestHandlingError } from './RequestHandlingError.js'
 import { mapFilter } from 'microtil'
 type Client = elastic.Client
@@ -34,13 +34,13 @@ export const init = () => {
 
 export const info = () => client().info()
 export const defaultSize = 1000
-const authorizedByPermission = (auth:AuthType, authInput:AuthInput) =>
+const authorizedByPermission = (auth:AuthenticationDefinition, authInput:AuthInput) =>
   typeof auth === 'boolean' ||
   auth.some(x => (authInput.permissions || []).some(y => x === y))
 
 const getUserIdFields = (fields:ManageableFields):string[] => Object.entries(fields).filter(x => x[1]).map(x => x[0])
 
-const filterToAccess = (input:any[], auth:AuthType, authInput:AuthInput, fields:ManageableFields):any[] =>
+const filterToAccess = (input:any[], auth:AuthenticationDefinition, authInput:AuthInput, fields:ManageableFields):any[] =>
   authorizedByPermission(auth, authInput) ? input : input.filter((x:any) => getUserIdFields(fields).some(y => x[y] === authInput.sub))
 
 export const get = async (

@@ -48,7 +48,7 @@ const processHandle = (x: ContractWithValidatedHandler<any, any>) => async (body
 
   try {
     const result: ContractResult =
-        await x.handle(body, { ...user, authentication }, x.contract)
+        await x.handle(body, { ...user }, x.contract)
     if (isContractInError(result)) { return { status: result.status, response: result } }
 
     const statusCode = x.contract.type === 'POST' ? 201 : 200

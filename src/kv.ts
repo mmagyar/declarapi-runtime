@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { ContractType, ManageableFields, AuthInput, AuthType } from './globalTypes.js'
+import { ContractType, ManageableFields, AuthInput, AuthenticationDefinition } from './globalTypes.js'
 import { RequestHandlingError } from './RequestHandlingError.js'
 import { memoryKV } from './memoryKv.js'
 import { KV, KvListReturn, ListEntry } from './abstractKv.js'
@@ -39,13 +39,13 @@ export const init = (key:WorkerTypes):KV => {
   throw new Error(`Unknown key value backend: '${key}'`)
 }
 
-const authorizedByPermission = (auth:AuthType, authInput:AuthInput) =>
+const authorizedByPermission = (auth:AuthenticationDefinition, authInput:AuthInput) =>
   typeof auth === 'boolean' ||
   auth.some(x => (authInput.permissions || []).some(y => x === y))
 
 const getUserIdFields = (fields:ManageableFields):string[] => Object.entries(fields).filter(x => x[1]).map(x => x[0])
 
-const filterToAccess = (input:any[], auth:AuthType, authInput:AuthInput, fields:ManageableFields):any[] =>
+const filterToAccess = (input:any[], auth:AuthenticationDefinition, authInput:AuthInput, fields:ManageableFields):any[] =>
   authorizedByPermission(auth, authInput) ? input : input.filter((x:any) => getUserIdFields(fields).some(y => x[y] === authInput.sub))
 const keyId = (index:string, id:string):string => `${index}:records:${id}`
 export const get = async (
