@@ -33,6 +33,7 @@ export const init = (key:WorkerTypes):KV => {
   if (typeof customKv !== 'undefined') {
     if (key in customKv) {
       clientInstance[key] = customKv[key]()
+      return clientInstance[key]
     }
   }
 
