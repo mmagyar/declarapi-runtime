@@ -130,10 +130,10 @@ export const post = async <T extends {[key: string]: any}>(
 Promise<T & any> => {
   if (!authorizedByPermission(contract.authentication, authInput)) throw new RequestHandlingError('User not authorized to POST', 403)
   const id = body.id || uuid()
-  const newBody: any = { ...body }
+  const newBody: {[key:string]:any} = { ...body }
   newBody.id = id
 
-  const metadata:any = {}
+  const metadata:{[key:string]:any} = {}
   if (contract.manageFields.createdBy === true) {
     newBody.createdBy = authInput.sub
     metadata.createdBy = authInput.sub
@@ -144,7 +144,7 @@ Promise<T & any> => {
     throw new RequestHandlingError('Resource already exists', 409)
   }
   // TODO returned without the full id, that contains the index, or maybe always remove the index when returning?
-  await client(type).put(keyId(index, id), newBody, { metadata })
+  await client(type).put(keyId(index, id), JSON.stringify(newBody), { metadata })
 
   return newBody
 }
@@ -167,7 +167,7 @@ export const patch = async <T extends object, K extends object>(type: WorkerType
     throw new RequestHandlingError('User has no right to patch this', 403)
   }
 
-  const newBody:any = { ...result[0] }
+  const newBody:{[key:string]:any} = { ...result[0] }
   for (const [key, value] of Object.entries(body)) {
     newBody[key] = value
   }
@@ -175,7 +175,7 @@ export const patch = async <T extends object, K extends object>(type: WorkerType
   const key = keyId(index, id)
   const { metadata } = await client(type).getWithMetadata(key)
 
-  await client(type).put(key, newBody, { metadata })
+  await client(type).put(key, JSON.stringify(newBody), { metadata })
 
   return (await get(type, index, contract, auth, id) as any)[0]
 }
@@ -192,7 +192,7 @@ export const put = async <T extends object, K extends object>(
   if (!result || result.length === 0) {
     throw new RequestHandlingError('User has no right to patch this', 403)
   }
-  const newBody :any = { ...body }
+  const newBody :{[key:string]:any} = { ...body }
   if (contract.manageFields.createdBy === true) {
     newBody.createdBy = result[0].createdBy
   }
@@ -200,7 +200,7 @@ export const put = async <T extends object, K extends object>(
   const key = keyId(index, id)
   const { metadata } = await client(type).getWithMetadata(key)
 
-  await client(type).put(key, newBody, { metadata })
+  await client(type).put(key, JSON.stringify(newBody), { metadata })
 
   return (await get(type, index, contract, auth, id) as any)[0]
 }
