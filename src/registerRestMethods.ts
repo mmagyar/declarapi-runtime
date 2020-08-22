@@ -73,7 +73,7 @@ const processHandle = (x: ContractWithValidatedHandler<any, any>) => async (body
 }
 export const registerRestMethods = <IN, OUT>(x:ContractWithValidatedHandler<IN, OUT>):HttpWrapped<IN, OUT> => {
   return {
-    route: `/api/${x.contract.name}/:id?`,
+    route: `/api/${x.contract.name}`,
     method: x.contract.type,
     contract: x.contract,
     handle: processHandle(x)

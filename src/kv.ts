@@ -108,9 +108,12 @@ export const get = async (
   const accessAll = authorizedByPermission(contract.authentication, authInput)
   const listId : Promise<object|null>[] = []
   let cursor
+  const limit = 64
   do {
-    const result:KvListReturn = await client(type).list({ limit: 10, cursor, prefix: `${index}:records` })
-    result.keys.forEach(async (x:ListEntry) => {
+    const result:KvListReturn = await client(type)
+      .list({ limit: Math.max(10, limit), cursor, prefix: `${index}:records` })
+    const keys = result.keys.slice(0, Math.max(limit - listId.length, 0))
+    keys.forEach(async (x:ListEntry) => {
       // Maybe prefix key with user id instead?
       if (accessAll || (x.metadata as any)?.createdBy === authInput.sub) {
         listId.push(client(type).get(x.name, 'json'))
@@ -118,6 +121,8 @@ export const get = async (
     })
 
     cursor = result.cursor
+    if (listId.length >= limit) cursor = null
+    if (result.list_complete) cursor = null
   } while (cursor)
 
   return (await Promise.all(listId) as any).filter((x:any) => x != null)
