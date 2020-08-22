@@ -162,9 +162,9 @@ export const workerKv = (): KV => {
     return fetchWithThrow(`${namespaced}/values/${key}`, { headers, method: 'DELETE' })
   }
 
-  const getWithMetadata = async (key:string) : Promise<{value:string | null, metadata: object | null}> => {
+  const getWithMetadata = async <T extends KvDataTypes>(key:string, type?:T) : Promise<{value:GetResultType<T> | null, metadata: object | null}> => {
     return {
-      value: await get(key, 'text'),
+      value: await get(key, type),
       metadata: (await list({ prefix: key }))?.keys[0]?.metadata || null
     }
   }

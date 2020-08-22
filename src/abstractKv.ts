@@ -1,5 +1,5 @@
-export type ValueType = string | ArrayBuffer|ReadableStream
-export type KvDataTypes = 'text'|'json'|'arrayBuffer'|'stream'
+export type ValueType = string | ArrayBuffer | ArrayBufferView | ReadableStream
+export type KvDataTypes = 'text' | 'json' | 'arrayBuffer' |'stream'
 
 export type GetResultType<T> =
   T extends undefined ? string :
@@ -20,7 +20,7 @@ export type KvListReturn ={
 export type KV = {
   list: (options?: {prefix?: string, limit?: number, cursor?: string}) => Promise<KvListReturn>
   get: (<T extends KvDataTypes> (key:string, type?:T) => Promise<GetResultType<T> | null>)
-  getWithMetadata:(key:string) => Promise<{value:ValueType | null, metadata: object | null}>,
+  getWithMetadata:(<T extends KvDataTypes>(key:string, type?:T) => Promise<{value:GetResultType<T> | null, metadata: object | null}>),
   put: (key:string, value:ValueType, additional?: {metadata?:any, expiration?:number, expirationTtl?:number}) => Promise<void>
   delete: (key:string) => Promise<void>
 };
