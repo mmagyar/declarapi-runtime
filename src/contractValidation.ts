@@ -21,7 +21,7 @@ export type ContractWithValidatedHandler<IN, OUT> = {
     handle: (input: any, auth: AuthInput, contract: ContractType<IN, OUT>) => Promise<ContractResult>;
     contract: ContractType<IN, OUT>
 }
-
+// @TODO why is this a separate step? it ust wraps the handle function, it does too much now.
 export const addValidationToContract = <IN, OUT>(
   contract:ContractType<IN, OUT>,
   validateOutput:boolean = true

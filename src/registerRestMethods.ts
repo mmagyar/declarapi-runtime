@@ -10,11 +10,11 @@ export type BodyType = { [key: string]: any} & {id?:string|string[]}
 
 export type HandleResponse = {status:number, response:any}
 export type HandleType = (body: { [key: string]: any} & {id?:string|string[]}, id?: string, user?: AuthInput) => Promise<HandleResponse>
-export type HttpWrapped<IN, OUT> = {
+export type HttpWrapped<METHOD extends HttpMethods, IN, OUT> = {
   route: string;
-  method: HttpMethods;
+  method: METHOD;
   handle: HandleType,
-  contract: ContractType<IN, OUT>
+  contract: ContractType<METHOD, any, IN, OUT>
 }
 
 const processHandle = (x: ContractWithValidatedHandler<any, any>) => async (body:BodyType, id?:string, user?:AuthInput) => {
@@ -53,6 +53,7 @@ const processHandle = (x: ContractWithValidatedHandler<any, any>) => async (body
 
     const statusCode = x.contract.type === 'POST' ? 201 : 200
     if (id && Array.isArray(result.result)) {
+      // TODO maybe remove this, it violates the type signature and does not add a lot really
       if (result.result.length > 1) {
         return errorStructure(500,
           'handleError',
