@@ -1,4 +1,4 @@
-import registerRestMethods from './registerRestMethods.js'
+import registerRestMethods from './process.js'
 import { ContractResult, ErrorResponse, ContractResultSuccess, ContractWithValidatedHandler } from './contractValidation.js'
 describe('registerRestMethods', () => {
   const input = ():ContractWithValidatedHandler<any, any> => ({

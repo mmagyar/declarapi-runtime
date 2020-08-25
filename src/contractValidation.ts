@@ -1,67 +1,53 @@
 import { validate, ValidationResult } from 'yaschva'
-import { ContractType, AuthInput } from './globalTypes.js'
+import { ContractType, AuthInput, HttpMethods, Implementation } from './globalTypes.js'
 
 export type ErrorResponse ={
   errorType: string; data: any; status: number; errors: ValidationResult| string[];}
 
-export const errorStructure = (status:number, errorType:string, errors: string, data:any):{status:number, response: ErrorResponse} => ({
-  status,
-  response: {
-    status, errorType, data, errors: [errors]
-  }
-})
-
-export type ContractResultSuccess = {result: any}
-export type ContractResult = ErrorResponse | ContractResultSuccess;
+export type ContractResultSuccess<OUT> = {result: OUT}
+export type ContractResult<OUT> = ErrorResponse | ContractResultSuccess<OUT>;
 
 export const isContractInError = (tbd: any): tbd is ErrorResponse =>
   Boolean(tbd.errors)
 
-export type ContractWithValidatedHandler<IN, OUT> = {
-    handle: (input: any, auth: AuthInput, contract: ContractType<IN, OUT>) => Promise<ContractResult>;
-    contract: ContractType<IN, OUT>
-}
-// @TODO why is this a separate step? it ust wraps the handle function, it does too much now.
-export const addValidationToContract = <IN, OUT>(
-  contract:ContractType<IN, OUT>,
-  validateOutput:boolean = true
-): ContractWithValidatedHandler<IN, OUT> => {
-  return {
-    contract: contract,
-    handle: async (input: any, auth?:AuthInput): Promise<ContractResult> => {
-      const validationResult = validate(contract.arguments, input)
-      if (validationResult.result === 'fail') {
-        return {
-          errorType: 'Input validation failed',
-          data: input,
-          status: 400,
-          errors: validationResult
-        }
-      }
+const inputValidationFailed = (errors:ValidationResult, data:any) => ({
+  errorType: 'Input validation failed',
+  data,
+  status: 400,
+  errors
+})
 
-      if (contract.handle) {
-        const result = await contract.handle(input, { ...auth }, contract)
-        if (validateOutput) {
-          const outputValidation = validate(contract.returns, result)
-          if (outputValidation.result === 'fail') {
-            return {
-              errorType: 'Unexpected result from function',
-              data: result,
-              status: 500,
-              errors: outputValidation
-            }
-          }
-        }
-        return { result }
-      }
-      return {
-        errorType: 'Not implemented',
-        data: contract.name,
-        status: 501,
-        errors: [`Handler for ${contract.name} was not defined`]
-      }
+const notImplemented = (contractName:string) => ({
+  errorType: 'Not implemented',
+  data: contractName,
+  status: 501,
+  errors: [`Handler for ${contractName} was not defined`]
+})
+
+const unexpectedResult = (errors: ValidationResult, data:any) => ({
+  errorType: 'Unexpected result from function',
+  data,
+  status: 500,
+  errors
+})
+
+export const wrapHandleWithValidation = <METHOD extends HttpMethods, IMPL extends Implementation, IN, OUT>(
+  contract: ContractType<METHOD, IMPL, IN, OUT>,
+  validateOutput:boolean = true
+): ((input: any, auth: AuthInput, contract:ContractType<METHOD, IMPL, IN, OUT>) => Promise<ContractResult<OUT>>) => {
+  return async (input: any, auth?:AuthInput): Promise<ContractResult<OUT>> => {
+    const validationResult = validate(contract.arguments, input)
+    if (validationResult.result === 'fail') {
+      return inputValidationFailed(validationResult, input)
     }
+    if (contract.handle) {
+      const result = await contract.handle(input, { ...auth }, contract)
+      if (validateOutput) {
+        const outputValidation = validate(contract.returns, result)
+        if (outputValidation.result === 'fail') return unexpectedResult(outputValidation, result)
+      }
+      return { result }
+    }
+    return notImplemented(contract.name)
   }
 }
-
-export default addValidationToContract
