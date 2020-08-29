@@ -24,8 +24,6 @@
     "lib": ["es6", "esnext", "dom"],
   },
 
-  "include": [
-    "src/**/*.ts", "src/process.spec._ts", "src/kv._ts", "src/contractValidation.spec._ts", "src/registerRestMethods.spec._ts"
-  ],
+  "include": [ "src/**/*.ts" ],
   "exclude": [ "node_modules" ]
 }

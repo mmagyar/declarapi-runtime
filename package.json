@@ -29,8 +29,9 @@
     "prepack": "npm run build && npm run build:commonjs",
     "build:commonjs": "tsc --module \"CommonJS\" -t \"es6\" --outDir \"./cjs\"",
     "test": "npm run build && npm run test:coverage",
-    "test:coverage": "c8 --all --exclude \"{**/*.spec.*,**/*.d.ts,cjs/**,coverage/**}\" --reporter=lcov --reporter=text ava",
+    "test:coverage": "c8 --all --exclude \"{**/*.spec.*,**/*.d.ts,cjs/**,coverage/**}\" --reporter=lcov --reporter=text ava --verbose",
     "test:fast": "ava",
+    "test:watch": "tsc-watch --onSuccess \"c8 --all --exclude \\\"{**/*.spec.*,**/*.d.ts,cjs/**,coverage/**}\\\" --reporter=lcov --reporter=text ava --verbose\"",
     "standard": "standardx **/*.ts",
     "standard:fix": "standardx --fix **/*.ts"
   },
@@ -60,6 +61,7 @@
     "ava": "^3.12.1",
     "c8": "^7.3.0",
     "standardx": "^5.0.0",
+    "tsc-watch": "^4.2.9",
     "typescript": "^3.9.7"
   },
   "dependencies": {

@@ -19,11 +19,11 @@ export const errorStructure = (status:number, errorType:string, errors: string, 
 export type InputType = { [key: string]: any} & {id?:string|string[]}
 
 export type HandleResponse<OUT> = {status:number, response:OUT | ErrorResponse }
-export type HandleType <OUT> =(body: InputType, id?: string, user?: AuthInput) => Promise<HandleResponse<OUT>>
+export type HandleType <OUT> =(body?: InputType, id?: string, user?: AuthInput) => Promise<HandleResponse<OUT>>
 
 export const processHandle = <METHOD extends HttpMethods, IMPL extends Implementation, IN, OUT> (contract: ContractType<METHOD, IMPL, IN, OUT>):
   HandleType<OUT> =>
-    async (body:InputType, id?:string, user?:AuthInput):
+    async (body?:InputType, id?:string, user?:AuthInput):
       Promise<HandleResponse<OUT>> => {
       const { authentication, manageFields } = contract
 
@@ -44,11 +44,11 @@ export const processHandle = <METHOD extends HttpMethods, IMPL extends Implement
       }
 
       if (id !== undefined) {
-        if (body && body.id !== undefined) {
+        if (body?.id !== undefined) {
           if (id !== body.id) {
             return errorStructure(400, 'id mismatch', 'Mismatch between the object Id in the body and the URL', { query: body, id })
           }
-        } else {
+        } else if (body) {
           body.id = id
         }
       }
