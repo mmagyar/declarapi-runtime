@@ -7,9 +7,6 @@ export type ErrorResponse ={
 export type ContractResultSuccess<OUT> = {result: OUT}
 export type ContractResult<OUT> = ErrorResponse | ContractResultSuccess<OUT>;
 
-export const isContractInError = (tbd: any): tbd is ErrorResponse =>
-  Boolean(tbd.errors)
-
 const inputValidationFailed = (errors:ValidationResult, data:any) => ({
   errorType: 'Input validation failed',
   data,

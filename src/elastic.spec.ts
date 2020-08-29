@@ -1,3 +1,9 @@
+import test from 'ava'
+
+test('NAME', t => {
+  t.is(true, true)
+})
+
 // import { init, post, del, client, patch, get, defaultSize, destroyClient, info } from './elastic.js'
 // import { Client } from '@elastic/elasticsearch'
 // import { ContractType } from './globalTypes.js'

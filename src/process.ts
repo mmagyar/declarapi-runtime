@@ -1,6 +1,9 @@
-import { ContractResult, isContractInError, wrapHandleWithValidation, ErrorResponse } from './contractValidation.js'
+import { ContractResult, wrapHandleWithValidation, ErrorResponse } from './contractValidation.js'
 import { HttpMethods, AuthInput, ContractType, Implementation } from './globalTypes.js'
 import { map } from 'microtil'
+
+export const isContractInError = (tbd: any): tbd is ErrorResponse =>
+  Boolean(tbd.errors)
 
 function isPrimitive (test:any):boolean {
   return (test !== Object(test))

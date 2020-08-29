@@ -1,6 +1,7 @@
 *.js
 *.d.ts
 *.js.map
+./cjs
 # Logs
 logs
 *.log
