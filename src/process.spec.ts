@@ -24,11 +24,12 @@ test('when there is no error, it returns the result as an object', async (t) => 
    { status: 201, response: { b: 'in', c: 'abc', id: 'abc' } } as any)
 })
 
-test('Handle still gets ids in the body -- TODO revise this', async (t) => {
-  const result = await processHandle(getContract())({ a: 'in', c: 'abc' }, 'abc')
+test('Handle receives the id passed to process output', async (t) => {
+  const result = await processHandle(getContract())({ a: 'in', c: 'abc' }, 'abc2')
 
-  t.deepEqual(result, { status: 200, response: { b: 'in', c: 'abc', id: 'abc' } } as any)
+  t.deepEqual(result, { status: 200, response: { b: 'in', c: 'abc', id: 'abc2' } } as any)
 })
+
 test('empty input will fail validation', async (t) => {
   expectError(t, await processHandle(getContract())({}),
     x => t.is(x.errorType, 'Input validation failed'), 400)
@@ -136,13 +137,6 @@ test('primitive exceptions thrown in the handler are converted to error output o
   assertCatch(t, await processHandle(getContract(
     { handle: () => { throw true } }))({ id: 'a', a: 'b' })
   , 'exception', 'true', true)
-})
-
-test('id in the body and in the arguments must match', async (t) => {
-  expectError(t,
-    await processHandle(getContract())({ id: 'otherId' }, 'someId'),
-    x => t.is(x.errorType, 'id mismatch'),
-    400)
 })
 
 test('authentication true: a user id is set, run handler', async (t) => {

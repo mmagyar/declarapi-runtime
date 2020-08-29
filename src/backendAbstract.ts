@@ -19,7 +19,7 @@ export type Get<IMPL extends Implementation> = <IN, OUT>(
 ) => Promise<BackendResult<OUT>>
 
 export type Post<IMPL extends Implementation> = <IN, OUT>(
-  contract: ContractType<'POST', IMPL, IN, OUT>, auth: AuthInput, body: IN
+  contract: ContractType<'POST', IMPL, IN, OUT>, auth: AuthInput, id: string|undefined, body: IN
 ) => Promise<BackendResult<OUT>>
 
 export type Delete<IMPL extends Implementation> = <IN, OUT>(
@@ -27,11 +27,11 @@ export type Delete<IMPL extends Implementation> = <IN, OUT>(
 ) => Promise<BackendResult<OUT>>
 
 export type Patch<IMPL extends Implementation> = <IN, OUT>(
-  contract: ContractType<'PATCH', IMPL, IN, OUT>, auth:AuthInput, body: IN, id: string
+  contract: ContractType<'PATCH', IMPL, IN, OUT>, auth:AuthInput, id: string, body: IN
 ) => Promise<BackendResult<OUT>>
 
 export type Put<IMPL extends Implementation> = <IN, OUT>(
-  contract: ContractType<'PUT', IMPL, IN, OUT>, auth:AuthInput, body: IN, id: string
+  contract: ContractType<'PUT', IMPL, IN, OUT>, auth:AuthInput, id: string, body: IN
 ) => Promise<BackendResult<OUT>>
 
 export type AbstractBackend<K extends Implementation>= {

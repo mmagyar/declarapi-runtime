@@ -31,7 +31,7 @@ export type ContractType<METHOD extends HttpMethods, IMPL extends Implementation
   name: string
   type: METHOD
   manageFields: ManageableFields,
-  handle?: (input: IN, auth: AuthInput, contract:ContractType<METHOD, IMPL, IN, OUT>) => Promise<OUT>
+  handle?: (input: IN, auth: AuthInput, contract:ContractType<METHOD, IMPL, IN, OUT>, id?:string) => Promise<OUT>
   arguments: Validation
   returns: Validation
   authentication: AuthenticationDefinition

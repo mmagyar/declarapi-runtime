@@ -31,14 +31,14 @@ const unexpectedResult = (errors: ValidationResult, data:any) => ({
 export const wrapHandleWithValidation = <METHOD extends HttpMethods, IMPL extends Implementation, IN, OUT>(
   contract: ContractType<METHOD, IMPL, IN, OUT>,
   validateOutput:boolean = true
-): ((input: any, auth: AuthInput, contract:ContractType<METHOD, IMPL, IN, OUT>) => Promise<ContractResult<OUT>>) => {
-  return async (input: any, auth?:AuthInput): Promise<ContractResult<OUT>> => {
+): ((input: any, auth?: AuthInput, id?:string) => Promise<ContractResult<OUT>>) => {
+  return async (input: any, auth:AuthInput = {}, id?:string): Promise<ContractResult<OUT>> => {
     const validationResult = validate(contract.arguments, input)
     if (validationResult.result === 'fail') {
       return inputValidationFailed(validationResult, input)
     }
     if (contract.handle) {
-      const result = await contract.handle(input, { ...auth }, contract)
+      const result = await contract.handle(input, { ...auth }, contract, id)
       if (validateOutput) {
         const outputValidation = validate(contract.returns, result)
         if (outputValidation.result === 'fail') return unexpectedResult(outputValidation, result)

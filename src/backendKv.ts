@@ -137,13 +137,14 @@ export const get = async <IN, OUT>(
 export const post = async <IN, OUT>(
   contract: ContractType<'POST', KVi, IN, OUT>,
   auth:AuthInput,
+  id: string| undefined,
   body: IN): Promise<BackendResult<OUT>> => {
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
   if (!authorizedByPermission(contract.authentication, auth)) return { error: 'forbidden' }
-  const id = (body as any)?.id || uuid()
+  const newId = id || uuid()
   const newBody: {[key:string]:any} = { ...body }
-  newBody.id = id
+  newBody.id = newId
 
   const metadata:{[key:string]:any} = {}
   if (contract.manageFields.createdBy === true) {
@@ -151,11 +152,11 @@ export const post = async <IN, OUT>(
     metadata.createdBy = auth.sub
   }
   // Maybe skip check if it is generated?
-  const got = await client(type).get(keyId(index, id))
+  const got = await client(type).get(keyId(index, newId))
   if (got) return { error: 'conflict' }
 
   // TODO returned without the full id, that contains the index, or maybe always remove the index when returning?
-  await client(type).put(keyId(index, id), JSON.stringify(newBody), { metadata })
+  await client(type).put(keyId(index, newId), JSON.stringify(newBody), { metadata })
 
   return { result: newBody as any }
 }
@@ -181,8 +182,8 @@ export const del = async <IN, OUT>(
 export const patch = async <IN, OUT>(
   contract: ContractType<'PATCH', KVi, IN, OUT>,
   auth:AuthInput,
-  body: IN,
-  id: string
+  id: string,
+  body: IN
 ): Promise<BackendResult<OUT>> => {
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
@@ -205,8 +206,8 @@ export const patch = async <IN, OUT>(
 export const put = async <IN, OUT>(
   contract: ContractType<'PUT', KVi, IN, OUT>,
   auth:AuthInput,
-  body: IN,
-  id: string
+  id: string,
+  body: IN
 ): Promise<BackendResult<OUT>> => {
   const type = contract.implementation.backend
   const index = contract.implementation.prefix

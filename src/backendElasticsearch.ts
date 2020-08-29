@@ -100,17 +100,18 @@ export const get = async <IN, OUT>(
 export const post = async <IN, OUT>(
   contract: ContractType<'POST', ES, IN, OUT>,
   auth:AuthInput,
+  id: string|undefined,
   body: IN): Promise<BackendResult<OUT>> => {
   if (!authorizedByPermission(contract.authentication, auth)) return { error: 'forbidden' }
-  const id = (body as any).id || uuid()
+  const idNew = id || uuid()
   const newBody: any = { ...body }
-  newBody.id = id
+  newBody.id = idNew
 
   if (contract.manageFields.createdBy === true) {
     newBody.createdBy = auth.sub
   }
   await client().create({
-    id,
+    id: idNew,
     index: contract.implementation.index.toLowerCase(),
     refresh: 'wait_for',
     body: newBody
@@ -139,8 +140,8 @@ export const del = async <IN, OUT>(
 export const patch = async <IN, OUT>(
   contract: ContractType<'PATCH', ES, IN, OUT>,
   auth:AuthInput,
-  body: IN,
-  id: string
+  id: string,
+  body: IN
 ): Promise<BackendResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
   const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
@@ -159,8 +160,8 @@ export const patch = async <IN, OUT>(
 export const put = async <IN, OUT>(
   contract: ContractType<'PUT', ES, IN, OUT>,
   auth:AuthInput,
-  body: IN,
-  id: string
+  id: string,
+  body: IN
 ): Promise<BackendResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
   const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
