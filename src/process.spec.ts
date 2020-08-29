@@ -145,11 +145,30 @@ test('id in the body and in the arguments must match', async (t) => {
     400)
 })
 
-test('authentication', async (t) => {
+test('authentication true: a user id is set, run handler', async (t) => {
   const handler = processHandle(getContract({ handle: defaultHandler, authentication: true }))
-  const result = await handler({ id: 'a', a: 'abc' })
 
-  expectError(t, result, x => {
-    t.is(x.errorType, 'unauthorized')
-  }, 401)
+  const result = await handler({ id: 'a', a: 'abc' }, undefined, { sub: 'userId' })
+  t.is(result.status, 200)
+  // @ts-ignore
+  t.deepEqual(result.response, { id: 'a', b: 'abc', c: undefined })
+})
+
+test('authentication true: without a user id set, immediately return with 401', async (t) => {
+  const handler = processHandle(getContract({ handle: defaultHandler, authentication: true }))
+
+  expectError(t, await handler({ id: 'a', a: 'abc' }), x => t.is(x.errorType, 'unauthorized'), 401)
+})
+
+test('authentication roles: without a user id set, immediately return with 401', async (t) => {
+  const handler = processHandle(getContract({ handle: defaultHandler, authentication: ['admin', 'editor'] }))
+
+  expectError(t, await handler({ id: 'a', a: 'abc' }), x => t.is(x.errorType, 'unauthorized'), 401)
+})
+
+test('authentication roles: without proper permissions, immediately return with 403', async (t) => {
+  const handler = processHandle(getContract({ handle: defaultHandler, authentication: ['admin', 'editor'] }))
+
+  expectError(t, await handler({ id: 'a', a: 'abc' }, undefined, { sub: 'userId' }), x => t.is(x.errorType, 'forbidden'), 403)
+  expectError(t, await handler({ id: 'a', a: 'abc' }, undefined, { sub: 'userId' }), x => t.is(x.errorType, 'forbidden'), 403)
 })
