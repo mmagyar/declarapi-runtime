@@ -1,7 +1,7 @@
 import { ObjectType, Validation } from 'yaschva'
 
 export type AuthenticationDefinition = (string | {createdBy: boolean})[] | boolean
-export type ManageableFields = { createdBy?: boolean }
+export type ManageableFields = { createdBy?: boolean, id?:boolean }
 
 export type HttpMethods = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type SearchTypes = 'textSearch' | 'full' | 'idOnly' | ObjectType;
@@ -9,6 +9,7 @@ export type SearchTypes = 'textSearch' | 'full' | 'idOnly' | ObjectType;
 export type AuthInput = { permissions? : string [], sub?: string }
 
 export type KeyValueStoreTypes ='memory' | 'workerKV' | {custom:string}
+export type BackEndTypes = 'manual' | 'elasticsearch' | 'key-value'
 export namespace Implementations {
   /** Expect manual implementation, nothing is generated**/
   export type manual = {type:'manual'}

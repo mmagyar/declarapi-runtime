@@ -2,7 +2,7 @@
 import { v4 as uuid } from 'uuid'
 import { ContractType, ManageableFields, AuthInput, AuthenticationDefinition, Implementations, KeyValueStoreTypes } from './globalTypes.js'
 import { memoryKV } from './memoryKv.js'
-import workerKv from './workerKv.js'
+import { workerKv } from './workerKv.js'
 import { AbstractBackend, BackendResult } from './backendAbstract.js'
 
 export type ValueType = string | ArrayBuffer | ArrayBufferView | ReadableStream
@@ -32,8 +32,7 @@ export type KV = {
   delete: (key:string) => Promise<void>
 };
 
-type WorkerCache ={memory? :KV, worker?: KV} & {[key:string]: KV}
-type WorkerTypes = keyof WorkerCache
+type WorkerCache = {[key:string]: KV}
 const clientInstance: WorkerCache = {}
 
 /**
@@ -43,10 +42,15 @@ export declare var customKv:{[key:string]: () => KV}
 
 const typeToString = (input:KeyValueStoreTypes) => typeof input === 'string' ? input : input.custom
 export const client = (key:KeyValueStoreTypes):KV => clientInstance[typeToString(key)] || init(typeToString(key))
-export const destroyClient = (key:WorkerTypes) => {
+
+export const destroyAllClients = () => {
+  for (const key of Object.keys(clientInstance)) delete clientInstance[key]
+}
+
+export const destroyClient = (key:string) => {
   delete clientInstance[key]
 }
-export const init = (key:WorkerTypes):KV => {
+export const init = (key:any):KV => {
   if (key === 'worker') {
     clientInstance.worker = workerKv()
     return clientInstance.worker as KV
@@ -142,9 +146,14 @@ export const post = async <IN, OUT>(
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
   if (!authorizedByPermission(contract.authentication, auth)) return { error: 'forbidden' }
+
   const newId = id || uuid()
+
   const newBody: {[key:string]:any} = { ...body }
-  newBody.id = newId
+
+  if (contract.manageFields.id === true) {
+    newBody.id = newId
+  }
 
   const metadata:{[key:string]:any} = {}
   if (contract.manageFields.createdBy === true) {
@@ -227,7 +236,7 @@ export const put = async <IN, OUT>(
   return { result: {} as any }
 }
 
-export const getElasticsearchProvider = ():AbstractBackend<Implementations.keyValue> => ({
+export const getKvProvider = ():AbstractBackend<Implementations.keyValue> => ({
   get,
   post,
   put,

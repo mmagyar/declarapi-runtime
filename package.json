@@ -31,7 +31,7 @@
     "test": "npm run build && npm run test:coverage",
     "test:coverage": "c8 --all --exclude \"{**/*.spec.*,**/*.d.ts,cjs/**,coverage/**}\" --reporter=lcov --reporter=text ava --verbose",
     "test:fast": "ava",
-    "test:watch": "tsc-watch --onSuccess \"c8 --all --exclude \\\"{**/*.spec.*,**/*.d.ts,cjs/**,coverage/**}\\\" --reporter=lcov --reporter=text ava --verbose\"",
+    "test:watch": "tsc-watch --onSuccess \"c8 --all --exclude \\\"{**/*.spec.*,**/*.d.ts,cjs/**,coverage/**}\\\" --reporter=lcov ava\"",
     "standard": "standardx **/*.ts",
     "standard:fix": "standardx --fix **/*.ts"
   },

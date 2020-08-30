@@ -171,5 +171,3 @@ export const workerKv = (): KV => {
 
   return { list, get, put, delete: destroy, getWithMetadata }
 }
-
-export default workerKv

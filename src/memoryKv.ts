@@ -80,5 +80,3 @@ export const memoryKV = (): KV => {
 
   return { list, get, put, delete: destroy, getWithMetadata }
 }
-
-export default memoryKV
