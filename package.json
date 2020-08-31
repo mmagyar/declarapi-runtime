@@ -1,6 +1,6 @@
 {
   "name": "declarapi-runtime",
-  "version": "0.3.8",
+  "version": "1.0.0",
   "description": "Declarative API runtime",
   "engines": {
     "node": ">=13.0.0",
