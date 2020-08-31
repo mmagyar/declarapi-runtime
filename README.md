@@ -7,7 +7,31 @@ Runtime dependencies of [declarapi](https://declarapi.com)
 
 ### Validation the incoming and outgoing data to the specified schema
 
+Using the [yaschva](https://yaschva.com) validator,
+that provides descriptive error messages.
+
 ### Catch all exceptions in the handlers and turn them into error messages
+
+If the thrown object has a status, statusCode or code field,
+with a number in it that is between 400 and 599,
+it will be used as the response code.
+
+Although, if there is an anticipated error,
+ it's better to return a `HandleErrorResponse` object
+
+### Handle authorization
+
+Role based access to the api endpoint is handled by
+the `process`-ed handle.
+
+Record based access (that depends on the createdBy field),
+is handled by the data access layer.
+If a manual backend implementation is used,
+this must be taken care of in the custom implementation.
+
+#### NOTICE
+Authentication must be handled by your app, the user information must be provided to the runtime.
+
 
  ### Provide a database communication layer
 - Elasticsearch

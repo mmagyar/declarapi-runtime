@@ -1,22 +1,19 @@
-import { ContractResult, wrapHandleWithValidation, ErrorResponse } from './contractValidation.js'
-import { HttpMethods, AuthInput, ContractType, Implementation } from './globalTypes.js'
+import { wrapHandleWithValidation } from './contractValidation.js'
+import { HttpMethods, AuthInput, ContractType, Implementation, HandleErrorResponse, HandleResult, isContractInError } from './globalTypes.js'
 import { map } from 'microtil'
-
-export const isContractInError = (tbd: any): tbd is ErrorResponse =>
-  Boolean(tbd.errors)
 
 function isPrimitive (test:any):boolean {
   return (test !== Object(test))
 };
 export const errorStructure = (status:number, errorType:string, errors: string, data:any):
-  {status:number, response: ErrorResponse} => ({
+  {status:number, response: HandleErrorResponse} => ({
   status,
   response: {
     status, errorType, data, errors: [errors]
   }
 })
 
-export type HandleResponse<OUT> = {status:number, response:OUT | ErrorResponse }
+export type HandleResponse<OUT> = {status:number, response:OUT | HandleErrorResponse }
 export type HandleType <OUT> =(body?: any, id?: string, user?: AuthInput) => Promise<HandleResponse<OUT>>
 
 export const processHandle = <METHOD extends HttpMethods, IMPL extends Implementation, IN, OUT> (contract: ContractType<METHOD, IMPL, IN, OUT>):
@@ -42,7 +39,7 @@ export const processHandle = <METHOD extends HttpMethods, IMPL extends Implement
       }
 
       try {
-        const result: ContractResult<OUT> = await wrapHandleWithValidation(contract)(body, { ...user }, id)
+        const result: HandleResult<OUT> = await wrapHandleWithValidation(contract)(body, { ...user }, id)
         if (isContractInError(result)) { return { status: result.status, response: result } }
 
         const statusCode = contract.type === 'POST' ? 201 : 200

@@ -1,9 +1,9 @@
 
 import { v4 as uuid } from 'uuid'
-import { ContractType, ManageableFields, AuthInput, AuthenticationDefinition, Implementations, KeyValueStoreTypes } from './globalTypes.js'
+import { ContractType, ManageableFields, AuthInput, AuthenticationDefinition, Implementations, KeyValueStoreTypes, HandleResult } from './globalTypes.js'
 import { memoryKV } from './memoryKv.js'
 import { workerKv } from './workerKv.js'
-import { AbstractBackend, BackendResult } from './backendAbstract.js'
+import { AbstractBackend, forbidden } from './backendAbstract.js'
 
 export type ValueType = string | ArrayBuffer | ArrayBufferView | ReadableStream
 export type KvDataTypes = 'text' | 'json' | 'arrayBuffer' |'stream'
@@ -91,12 +91,11 @@ const getByIdChecked = async (
   const result = await client(type).get(keyId(index, id), 'json')
   return filterToAccess([result], authDef, auth, manageFields)
 }
-
 export const get = async <IN, OUT>(
   contract: ContractType<'GET', KVi, IN, OUT>,
   auth: AuthInput,
   input:IN
-): Promise<BackendResult<OUT>> => {
+): Promise<HandleResult<OUT>> => {
   const id: string | string[] = (input as any)?.id
   let cursor = (input as any)?.cursor
   const limit = (input as any)?. limit || 64
@@ -109,13 +108,13 @@ export const get = async <IN, OUT>(
     return { result: filterToAccess(docs, contract.authentication, auth, contract.manageFields) as any }
   } else if (id) {
     const result = await client(type).get(keyId(index, id), 'json')
-    if (!result) return { error: 'notFound' }
+    if (!result) return { errorType: 'notFound', data: input, status: 404, errors: [] }
     const filtered = filterToAccess([result], contract.authentication, auth, contract.manageFields)
-    if (filtered.length === 0) return { error: 'forbidden' }
+    if (filtered.length === 0) return forbidden(input)
     return { result: filtered as any }
   }
 
-  if (!contract.implementation.allowGetAll) return { error: 'badInput', data: 'Get all is disabled, id must be provided' }
+  if (!contract.implementation.allowGetAll) return { errorType: 'badInput', status: 400, errors: ['Get all is disabled, id must be provided'] }
 
   const accessAll = authorizedByPermission(contract.authentication, auth)
   const listId : Promise<object|null>[] = []
@@ -142,10 +141,9 @@ export const post = async <IN, OUT>(
   contract: ContractType<'POST', KVi, IN, OUT>,
   auth:AuthInput,
   id: string| undefined,
-  body: IN): Promise<BackendResult<OUT>> => {
+  body: IN): Promise<HandleResult<OUT>> => {
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
-  if (!authorizedByPermission(contract.authentication, auth)) return { error: 'forbidden' }
 
   const newId = id || uuid()
 
@@ -162,7 +160,7 @@ export const post = async <IN, OUT>(
   }
   // Maybe skip check if it is generated?
   const got = await client(type).get(keyId(index, newId))
-  if (got) return { error: 'conflict' }
+  if (got) return { errorType: 'conflict', data: body, status: 409, errors: [] }
 
   // TODO returned without the full id, that contains the index, or maybe always remove the index when returning?
   await client(type).put(keyId(index, newId), JSON.stringify(newBody), { metadata })
@@ -174,7 +172,7 @@ export const del = async <IN, OUT>(
   contract: ContractType<'DELETE', KVi, IN, OUT>,
   auth:AuthInput,
   id: string|string[]
-): Promise<BackendResult<OUT>> => {
+): Promise<HandleResult<OUT>> => {
   if (Array.isArray(id)) {
     await Promise.all(id.map(x => del(contract, auth, x)))
     return { result: {} as any }
@@ -182,7 +180,7 @@ export const del = async <IN, OUT>(
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
   const result = await getByIdChecked(id, auth, type, index, contract.authentication, contract.manageFields)
-  if (!result || result.length === 0) return { error: 'forbidden' }
+  if (!result || result.length === 0) return forbidden(id)
 
   await client(type).delete(keyId(index, id))
   return { result: {} as any }
@@ -193,11 +191,11 @@ export const patch = async <IN, OUT>(
   auth:AuthInput,
   id: string,
   body: IN
-): Promise<BackendResult<OUT>> => {
+): Promise<HandleResult<OUT>> => {
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
   const result = await getByIdChecked(id, auth, type, index, contract.authentication, contract.manageFields)
-  if (!result || result.length === 0) return { error: 'forbidden' }
+  if (!result || result.length === 0) return forbidden({ id, body })
 
   const newBody:{[key:string]:any} = { ...result[0] }
   for (const [key, value] of Object.entries(body)) {
@@ -217,11 +215,11 @@ export const put = async <IN, OUT>(
   auth:AuthInput,
   id: string,
   body: IN
-): Promise<BackendResult<OUT>> => {
+): Promise<HandleResult<OUT>> => {
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
   const result = await getByIdChecked(id, auth, type, index, contract.authentication, contract.manageFields)
-  if (!result || result.length === 0) return { error: 'forbidden' }
+  if (!result || result.length === 0) return forbidden({ id, body })
 
   const newBody :{[key:string]:any} = { ...body }
   if (contract.manageFields.createdBy === true) {

@@ -1,5 +1,5 @@
 import ava from 'ava'
-import { ContractType, ManageableFields, AuthenticationDefinition, AuthInput, HttpMethods, Implementation } from './globalTypes.js'
+import { ContractType, ManageableFields, AuthenticationDefinition, AuthInput, HttpMethods, Implementation, HandleResult } from './globalTypes.js'
 import { Validation } from 'yaschva'
 ava('uses test contract generation', t => t.pass())
 export type TestContractOut = {id:string, b:string}
@@ -8,13 +8,13 @@ export type TestContractType<T extends HttpMethods> =
   ContractType<T, Implementation, TestContractIn, TestContractOut>
 
 export const defaultHandler = async <T extends HttpMethods>(input: {id?:string, a:string, c?:string}, auth:AuthInput, _2:TestContractType<T>, id?:string) =>
-  ({ id: input.id || id || 'gen', b: input.a, c: input.c })
+  ({ result: { id: input.id || id || 'gen', b: input.a, c: input.c } })
 
 export const getContract = <T extends HttpMethods = 'GET'>(input: {
   manageFields?:ManageableFields,
   authentication?:AuthenticationDefinition,
   name?:string,
-  handle? : (input: TestContractIn, auth: AuthInput, contract:TestContractType<T>, id?:string) => Promise<TestContractOut>,
+  handle? : (input: TestContractIn, auth: AuthInput, contract:TestContractType<T>, id?:string) => Promise<HandleResult<TestContractOut>>,
   method?: T,
   implementation?: Implementation,
   arguments ?: Validation

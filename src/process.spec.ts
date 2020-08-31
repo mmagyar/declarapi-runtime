@@ -1,11 +1,11 @@
 import test, { ExecutionContext } from 'ava'
-import { processHandle, isContractInError } from './process.js'
+import { processHandle } from './process.js'
 import { getContract, defaultHandler } from './testHelpers.spec.js'
-import { ErrorResponse } from './contractValidation.js'
 import { RequestHandlingError } from './RequestHandlingError.js'
+import { HandleErrorResponse, isContractInError } from './globalTypes.js'
 /* eslint-disable no-throw-literal */
 
-const expectError = (t:ExecutionContext, result:any, cb:(response:ErrorResponse)=>void, status?:number) => {
+const expectError = (t:ExecutionContext, result:any, cb:(response:HandleErrorResponse)=>void, status?:number) => {
   if (isContractInError(result?.response)) {
     if (typeof status !== 'undefined') {
       t.is(result?.status, status)

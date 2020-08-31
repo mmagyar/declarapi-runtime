@@ -24,7 +24,7 @@ test('returns error on invalid input', async (t) => {
 })
 
 test('returns error on output that does not confirm to type', async (t) => {
-  const contract = getContract({ handle: () => { return { x: 'some', id: 'thing' } as any } })
+  const contract = getContract({ handle: async () => { return { result: { x: 'some', id: 'thing' } as any } } })
   const result = wrapHandleWithValidation(contract)
   t.deepEqual(await result({ id: 'something', a: 'valid' }), {
     data: { id: 'thing', x: 'some' },

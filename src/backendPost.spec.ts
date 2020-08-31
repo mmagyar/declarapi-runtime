@@ -1,5 +1,5 @@
 import test, { ExecutionContext } from 'ava'
-import { ContractType } from './globalTypes.js'
+import { ContractType, isContractInError } from './globalTypes.js'
 import { getProvider } from './backendProviders.js'
 import { generate, validate } from 'yaschva'
 import { getContract } from './testHelpers.spec.js'
@@ -13,27 +13,25 @@ const backendTests = ():[string, TestFn][] => {
 
   push('can post generated data', (backend, postContract) => async (t) => {
     const result = await backend.post(postContract, {}, 'uuid1', generate(postContract.arguments))
-    t.falsy(result.error)
-    const valid = validate(postContract.returns, result.result)
-    t.is(valid.result, 'pass')
-  })
-
-  push('Unauthorized users can not post', (backend, postContract) => async (t) => {
-    const c2 = { ...postContract, authentication: ['admin'] }
-    t.is((await backend.post(c2, { sub: 'userId', permissions: ['regular'] }, 'uuid1', generate(c2.arguments))).error, 'forbidden')
-    const success = await backend.post(c2, { sub: 'userId', permissions: ['admin'] }, 'uuid1', generate(c2.arguments))
-    t.falsy(success.error)
-    t.is((await backend.post(c2, { }, 'uuid1', generate(c2.arguments))).error, 'forbidden')
+    if (isContractInError(result)) {
+      t.fail('unexpected error in result')
+    } else {
+      const valid = validate(postContract.returns, result.result)
+      t.is(valid.result, 'pass')
+    }
   })
 
   push('can not override posted record', (backend, postContract) => async (t) => {
     const result = await backend.post(postContract, {}, 'uuid1', generate(postContract.arguments))
-    t.falsy(result.error)
+    if (isContractInError(result)) { return t.fail('expected a valid response') }
+
     const valid = validate(postContract.returns, result.result)
     t.is(valid.result, 'pass')
 
     const errResult = await backend.post(postContract, {}, 'uuid1', generate(postContract.arguments))
-    t.is(errResult.error, 'conflict')
+    if (isContractInError(errResult)) {
+      t.is(errResult.status, 409)
+    } else t.fail('expected an error response')
   })
 
   push('manageFields createdBy: saved and added to result', (backend, postContract) => async (t) => {
@@ -43,7 +41,8 @@ const backendTests = ():[string, TestFn][] => {
       manageFields: { createdBy: true }
     }
     const result = await backend.post(c2, { sub: 'userId' }, undefined, generate(c2.arguments))
-    t.falsy(result.error)
+
+    if (isContractInError(result)) { return t.fail('expected a valid response') }
     t.is(result.result?.createdBy, 'userId')
     const valid = validate(c2.returns, result.result)
     t.is(valid.result, 'pass')
@@ -56,11 +55,17 @@ const backendTests = ():[string, TestFn][] => {
       manageFields: { id: true }
     }
     const result = await backend.post(c2, {}, undefined, generate(c2.arguments))
-    t.falsy(result.error)
+    if (isContractInError(result)) { return t.fail('expected a valid response') }
+
     const valid = validate(c2.returns, result.result)
     t.is(typeof result.result?.id, 'string')
     t.is(valid.result, 'pass')
-    t.is((await backend.post(c2, {}, 'itemId', generate(c2.arguments))).result?.id, 'itemId')
+
+    const success = await backend.post(c2, {}, 'itemId', generate(c2.arguments))
+
+    if (isContractInError(success)) { return t.fail('expected a valid response') }
+
+    t.is(success.result?.id, 'itemId')
   })
 
   return testsToRun

@@ -1,8 +1,8 @@
 import elastic from '@elastic/elasticsearch'
 import { v4 as uuid } from 'uuid'
-import { AuthInput, ContractType, Implementations, AuthenticationDefinition, ManageableFields } from './globalTypes.js'
+import { AuthInput, ContractType, Implementations, AuthenticationDefinition, ManageableFields, HandleResult } from './globalTypes.js'
 import { mapFilter } from 'microtil'
-import { AbstractBackend, getUserIdFields, filterToAccess, authorizedByPermission, BackendResult } from './backendAbstract.js'
+import { AbstractBackend, getUserIdFields, filterToAccess, authorizedByPermission, forbidden } from './backendAbstract.js'
 type Client = elastic.Client
 const Client = elastic.Client
 let clientInstance: Client | undefined
@@ -51,7 +51,7 @@ export const get = async <IN, OUT>(
   contract: ContractType<'GET', ES, IN, OUT>,
   auth: AuthInput,
   input:IN
-): Promise<BackendResult<OUT>> => {
+): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
   const { manageFields, authentication: authDef } = contract
   const userIdFilter: any = {
@@ -101,8 +101,7 @@ export const post = async <IN, OUT>(
   contract: ContractType<'POST', ES, IN, OUT>,
   auth:AuthInput,
   id: string|undefined,
-  body: IN): Promise<BackendResult<OUT>> => {
-  if (!authorizedByPermission(contract.authentication, auth)) return { error: 'forbidden' }
+  body: IN): Promise<HandleResult<OUT>> => {
   const idNew = id || uuid()
   const newBody: any = { ...body }
   newBody.id = idNew
@@ -124,14 +123,14 @@ export const del = async <IN, OUT>(
   contract: ContractType<'DELETE', ES, IN, OUT>,
   auth:AuthInput,
   id: string|string[]
-): Promise<BackendResult<OUT>> => {
+): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
   if (Array.isArray(id)) {
     await Promise.all(id.map(x => del<IN, OUT>(contract, auth, x)))
     return { result: {} as any }
   }
   const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
-  if (!result || result.length === 0) return { error: 'forbidden' }
+  if (!result || result.length === 0) return forbidden(id)
 
   await client().delete({ index, id, refresh: 'wait_for' })
   return { result: {} as any }
@@ -142,10 +141,10 @@ export const patch = async <IN, OUT>(
   auth:AuthInput,
   id: string,
   body: IN
-): Promise<BackendResult<OUT>> => {
+): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
   const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
-  if (!result || result.length === 0) return { error: 'forbidden' }
+  if (!result || result.length === 0) return forbidden({ id, body })
 
   await client().update(
     {
@@ -162,11 +161,11 @@ export const put = async <IN, OUT>(
   auth:AuthInput,
   id: string,
   body: IN
-): Promise<BackendResult<OUT>> => {
+): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
   const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
 
-  if (!result || result.length === 0) return { error: 'forbidden' }
+  if (!result || result.length === 0) return forbidden({ id, body })
 
   const newBody :any = { ...body }
   if (contract.manageFields.createdBy === true) {
