@@ -16,33 +16,33 @@ const contract = getContract<'GET', INPUT, OUTPUT>({
 type GC = typeof contract
 const getTests = ():[string, TestFn<GC>][] => {
   const testsToRun:[string, TestFn<GC>][] = []
-  const push = (key:string, fn:TestFn<GC>) => testsToRun.push([key, fn])
+  const test = (key:string, fn:TestFn<GC>) => testsToRun.push([key, fn])
 
-  push('get input is optional', ExpectGood(
+  test('get input is optional', ExpectGood(
     (db, c:GC) => db.get(c, {}, [], undefined),
     (a, t) => t.deepEqual(a.result, [])))
 
-  push('get id and input is optional', ExpectGood(
+  test('get id and input is optional', ExpectGood(
     (db, c:GC) => db.get(c, {}, undefined, undefined),
     (a, t) => t.deepEqual(a.result, [])))
 
-  push('get with single id returns notFound error', ExpectBad(
+  test('get with single id returns notFound error', ExpectBad(
     (db, c:GC) => db.get(c, {}, 'idIn', { }),
     (a, t) => t.is(a.errorType, 'notFound')))
 
-  push('get with single id in body returns notFound error', ExpectBad(
+  test('get with single id in body returns notFound error', ExpectBad(
     (db, c:GC) => db.get(c, {}, undefined, { id: 'idIn' }),
     (a, t) => t.is(a.errorType, 'notFound')))
 
-  push('get with an array id with non existing records returns empty array', ExpectGood(
+  test('get with an array id with non existing records returns empty array', ExpectGood(
     (db, c:GC) => db.get(c, {}, ['imagineId'], {}),
     (a, t) => t.deepEqual(a.result, [])))
 
-  push('get with empty array id returns empty array', ExpectGood(
+  test('get with empty array id returns empty array', ExpectGood(
     (db, c:GC) => db.get(c, {}, [], {}),
     (a, t) => t.deepEqual(a.result, [])))
 
-  push('get with empty array id in the body returns empty array', ExpectGood(
+  test('get with empty array id in the body returns empty array', ExpectGood(
     (db, c:GC) => db.get(c, {}, undefined, { id: [] }),
     (a, t) => t.deepEqual(a.result, [])))
 
@@ -60,21 +60,21 @@ const getTests = ():[string, TestFn<GC>][] => {
       })
   }
 
-  push('get posted id and input is optional, all is returned', ExpectGood(
+  test('get posted id and input is optional, all is returned', ExpectGood(
     async (db, c:GC) => (await postSome(db, c, postType)) && db.get(c, {}, undefined, undefined),
     (a, t, c) => {
       t.is(validate(c.returns, a.result).result, 'pass')
       t.is((a.result).length, defaultNum)
     }))
 
-  push('get posted by id', ExpectGood(
+  test('get posted by id', ExpectGood(
     async (db, c:GC) => (await postSome(db, c, postType)) && db.get(c, {}, 'my_id_2', undefined),
     (a, t, c) => {
       t.is((a.result).length, 1)
       t.is(validate(c.returns, a.result).result, 'pass')
     }))
 
-  push('get posted by id in body', ExpectGood(
+  test('get posted by id in body', ExpectGood(
     async (db, c:GC) => (await postSome(db, c, postType)) && db.get(c, {}, undefined, { id: 'my_id_6' }),
     (a, t, c) => {
       t.is((a.result).length, 1)
@@ -87,25 +87,25 @@ const getTests = ():[string, TestFn<GC>][] => {
     manageFields: { createdBy: true },
     returns: { $array: { ...((c.returns as any).$array), createdBy: 'string' } }
   })
-  push('get with permissions: posted id and input is optional, unauthorized gets nothing back', ExpectGood(
+  test('get with permissions: posted id and input is optional, unauthorized gets nothing back', ExpectGood(
     async (db, c:GC) => (await postSome(db, withAuth(c), postType, { sub: 'userA' })) && db.get(withAuth(c), {}, undefined, undefined),
     (a, t) => t.is((a.result).length, 0)))
 
-  push('get with permissions: posted id and input is optional, all is returned for authorized user by permission', ExpectGood(
+  test('get with permissions: posted id and input is optional, all is returned for authorized user by permission', ExpectGood(
     async (db, c:GC) => (await postSome(db, withAuth(c), postType, { sub: 'userA' })) && db.get(withAuth(c), { sub: 'userB', permissions: ['admin'] }, undefined, undefined),
     (a, t, c) => {
       t.is(validate(withAuth(c).returns, a.result).result, 'pass')
       t.is((a.result).length, defaultNum)
     }))
 
-  push('get with permissions: posted id and input is optional, all is returned for authorized user by userId', ExpectGood(
+  test('get with permissions: posted id and input is optional, all is returned for authorized user by userId', ExpectGood(
     async (db, c:GC) => (await postSome(db, withAuth(c), postType, { sub: 'userA' })) && db.get(withAuth(c), { sub: 'userA', permissions: [] }, undefined, undefined),
     (a, t, c) => {
       t.is(validate(withAuth(c).returns, a.result).result, 'pass')
       t.is((a.result).length, defaultNum)
     }))
 
-  push('get with permissions: posted id and input is optional, all is returned for authorized user by userId (with records from multiple users)', ExpectGood(
+  test('get with permissions: posted id and input is optional, all is returned for authorized user by userId (with records from multiple users)', ExpectGood(
     async (db, c:GC) => (await postSome(db, withAuth(c), postType, { sub: 'userA' }, 10)) &&
     (await postSome(db, withAuth(c), postType, { sub: 'userB' }, 10)) &&
     (await postSome(db, withAuth(c), postType, { sub: 'userC' }, 20)) &&
@@ -115,11 +115,11 @@ const getTests = ():[string, TestFn<GC>][] => {
       t.is((a.result).length, 10)
     }))
 
-  push('get with permissions: unauthorized user gets forbidden', ExpectBad(
+  test('get with permissions: unauthorized user gets forbidden', ExpectBad(
     async (db, c:GC) => (await postSome(db, withAuth(c), postType, { sub: 'userA' })) && db.get(withAuth(c), { sub: 'userB', permissions: [] }, 'my_id_userA0', undefined),
     (a, t) => t.is((a.status), 403)))
 
-  push('get with permissions: get array of ids, unauthorized user gets empty array', ExpectGood(
+  test('get with permissions: get array of ids, unauthorized user gets empty array', ExpectGood(
     async (db, c:GC) => (await postSome(db, withAuth(c), postType, { sub: 'userA' })) && db.get(withAuth(c), { sub: 'userB', permissions: [] }, ['my_id_userA0', 'my_id_userA1'], undefined),
     (a, t) => t.is(a.result.length, 0)))
 
