@@ -8,13 +8,13 @@ const backendTests = ():[string, TestFn<PC>][] => {
   const push = (key:string, fn:TestFn<PC>) => testsToRun.push([key, fn])
 
   push('can post generated data', ExpectGood(
-    (b, c:PC) => b.post(c, {}, 'uuid1', generate(c.arguments)),
+    (db, c:PC) => db.post(c, {}, 'uuid1', generate(c.arguments)),
     (r, t, c) => { t.is(validate(c.returns, r.result).result, 'pass') }))
 
   push('can not override posted record', ExpectBad(
-    async (b, c:PC) => {
-      if ((await b.post(c, {}, 'uuid1', generate(c.arguments))).errors) throw new Error('Fist post failed')
-      return b.post(c, {}, 'uuid1', generate(c.arguments))
+    async (db, c:PC) => {
+      if ((await db.post(c, {}, 'uuid1', generate(c.arguments))).errors) throw new Error('Fist post failed')
+      return db.post(c, {}, 'uuid1', generate(c.arguments))
     }, (result, t, c) => {
       t.is(result.status, 409)
       t.is(validate(c.returns, result.result).result, 'fail')
@@ -29,7 +29,7 @@ const backendTests = ():[string, TestFn<PC>][] => {
       })
 
     push('manageFields createdBy: saved and added to result', ExpectGood(
-      (b, c:PC) => b.post(withCreated(c), { sub: 'userId' }, undefined, generate(withCreated(c).arguments)),
+      (db, c:PC) => db.post(withCreated(c), { sub: 'userId' }, undefined, generate(withCreated(c).arguments)),
       (result, t, c) => { t.is(validate(withCreated(c).returns, result.result).result, 'pass') }))
   }
 
@@ -42,14 +42,14 @@ const backendTests = ():[string, TestFn<PC>][] => {
       })
 
     push('manageFields id: id is generated and saved and added to result', ExpectGood(
-      (b, c:PC) => b.post(withId(c), { sub: 'userId' }, undefined, generate(withId(c).arguments)),
+      (db, c:PC) => db.post(withId(c), { sub: 'userId' }, undefined, generate(withId(c).arguments)),
       (result, t, c) => {
         t.is(typeof result.result?.id, 'string')
         t.is(validate(withId(c).returns, result.result).result, 'pass')
       }))
 
     push('manageFields id: id is saved and added to result', ExpectGood(
-      (b, c:PC) => b.post(withId(c), { sub: 'userId' }, 'itemId', generate(withId(c).arguments)),
+      (db, c:PC) => db.post(withId(c), { sub: 'userId' }, 'itemId', generate(withId(c).arguments)),
       (result, t) => { t.is(result.result?.id, 'itemId') }))
   }
 
