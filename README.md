@@ -1,4 +1,9 @@
-# declarapi-runtime
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+![Latest version published](https://github.com/mmagyar/declarapi-runtime/workflows/Automatic%20package%20publish/badge.svg?branch=master)
+![Build](https://github.com/mmagyar/declarapi-runtime/workflows/Automatic%20test%20run/badge.svg?branch=master)
+![Code coverage](https://img.shields.io/codecov/c/github/mmagyar/declarapi-runtime)
+
+# [declarapi-runtime](https://github.com/mmagyar/declarapi-runtime)
 
 
 Runtime dependencies of [declarapi](https://declarapi.com)
