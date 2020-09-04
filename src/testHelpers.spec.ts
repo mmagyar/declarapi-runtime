@@ -6,8 +6,8 @@ import { getProvider } from './backendProviders.js'
 test('uses test contract generation', t => t.pass())
 export type TestContractOut = {id:string, b:string}
 export type TestContractIn = {id?:string, a:string}
-export type TestContractType<T extends HttpMethods, IN> =
-  ContractType<T, Implementation, IN, TestContractOut>
+export type TestContractType<T extends HttpMethods, IN, OUT> =
+  ContractType<T, Implementation, IN, OUT>
 
 export type TestFn<CONTR extends AnyContract> = (backend:AbstractBackend<any>, postContract:CONTR)=>(t:ExecutionContext)=> Promise<void>
 export const runTestArray = <CONTR extends AnyContract>(contract:CONTR, tests: [string, TestFn<CONTR>][]) => {
@@ -30,20 +30,20 @@ export const runTestArray = <CONTR extends AnyContract>(contract:CONTR, tests: [
   }
 }
 
-export const defaultHandler = async <T extends HttpMethods, IN>(input: {id?:string, a:string, c?:string}, auth:AuthInput, _2:TestContractType<T, IN>, id?:string) =>
+export const defaultHandler = async <T extends HttpMethods, IN, OUT>(input: {id?:string, a:string, c?:string}, auth:AuthInput, _2:TestContractType<T, IN, OUT>, id?:string) =>
   ({ result: { id: input.id || id || 'gen', b: input.a, c: input.c } })
 
-export const getContract = <T extends HttpMethods = 'GET', IN = TestContractIn>(input: {
+export const getContract = <T extends HttpMethods = 'GET', IN = TestContractIn, OUT = TestContractOut>(input: {
   manageFields?:ManageableFields,
   authentication?:AuthenticationDefinition,
   name?:string,
-  handle? : (input: IN, auth: AuthInput, contract:TestContractType<T, IN>, id?:string) => Promise<HandleResult<TestContractOut>>,
+  handle? : (input: IN, auth: AuthInput, contract:TestContractType<T, IN, OUT>, id?:string) => Promise<HandleResult<OUT>>,
   method?: T,
   implementation?: Implementation,
   arguments ?: Validation
   returns?: Validation
 } = { handle: defaultHandler as any }
-):TestContractType<T, IN> => {
+):TestContractType<T, IN, OUT> => {
   return {
     authentication: input.authentication || false,
     arguments: input.arguments || { id: ['string', '?'], a: 'string', c: ['?', 'string'] },

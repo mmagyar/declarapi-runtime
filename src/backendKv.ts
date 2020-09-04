@@ -123,7 +123,7 @@ export const get = async <IN, OUT>(
   const result:KvListReturn = await client(type)
     .list({ limit: Math.max(10, limit), cursor, prefix: `${index}:records` })
   result.keys.forEach(async (x:ListEntry) => {
-    if (accessAll || (x.metadata as any)?.createdBy === auth.sub) {
+    if (accessAll || (x.metadata as any).createdBy === auth.sub) {
       listId.push(client(type).get(x.name, 'json'))
     }
   })
