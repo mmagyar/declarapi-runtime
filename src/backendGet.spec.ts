@@ -119,6 +119,10 @@ const getTests = ():[string, TestFn<GC>][] => {
     async (db, c:GC) => (await postSome(db, withAuth(c), postType, { sub: 'userA' })) && db.get(withAuth(c), { sub: 'userB', permissions: [] }, 'my_id_userA0', undefined),
     (a, t) => t.is((a.status), 403)))
 
+  push('get with permissions: get array of ids, unauthorized user gets empty array', ExpectGood(
+    async (db, c:GC) => (await postSome(db, withAuth(c), postType, { sub: 'userA' })) && db.get(withAuth(c), { sub: 'userB', permissions: [] }, ['my_id_userA0', 'my_id_userA1'], undefined),
+    (a, t) => t.is(a.result.length, 0)))
+
   return testsToRun
 }
 
