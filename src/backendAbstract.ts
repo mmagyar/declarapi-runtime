@@ -12,7 +12,7 @@ export const filterToAccess = (input:any[], auth:AuthenticationDefinition, authI
 export const keyId = (index:string, id:string):string => `${index}:records:${id}`
 
 export type Get<IMPL extends Implementation> = <IN, OUT>(
-  contract: ContractType<'GET', IMPL, IN, OUT>, auth: AuthInput, body:IN
+  contract: ContractType<'GET', IMPL, IN, OUT>, auth: AuthInput, id: string|string[]|undefined, body:IN
 ) => Promise<HandleResult<OUT>>
 
 export type Post<IMPL extends Implementation> = <IN, OUT>(

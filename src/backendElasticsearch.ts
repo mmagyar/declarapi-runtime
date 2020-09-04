@@ -50,6 +50,7 @@ const getByIdChecked = async (
 export const get = async <IN, OUT>(
   contract: ContractType<'GET', ES, IN, OUT>,
   auth: AuthInput,
+  idIn: string | string[] | undefined,
   input:IN
 ): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
@@ -64,7 +65,7 @@ export const get = async <IN, OUT>(
     }
   }
 
-  const id:string | string[] = (input as any)?.id
+  const id:string | string[] = idIn || (input as any)?.id
   const search:string = (input as any)?.search
   if (Array.isArray(id)) {
     if (id.length === 0) return [] as any

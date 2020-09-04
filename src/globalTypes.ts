@@ -24,9 +24,10 @@ export namespace Implementations {
   export type keyValue = { type: 'key-value', prefix:string, backend: KeyValueStoreTypes, allowGetAll?: true}
 }
 export type Implementation =
+  {type:string} & (
   Implementations.manual |
   Implementations.elasticsearch |
-  Implementations.keyValue
+  Implementations.keyValue)
 
 export type ContractType<METHOD extends HttpMethods, IMPL extends Implementation, IN, OUT> = {
   name: string
@@ -38,11 +39,24 @@ export type ContractType<METHOD extends HttpMethods, IMPL extends Implementation
   authentication: AuthenticationDefinition
   implementation: IMPL
 }
+export type AnyContract = ContractType<any, any, any, any>
 
 export type HandleErrorResponse ={
-  errorType: string; data?: any; status: number; errors: ValidationResult| string[];}
+  errorType: string
+  data?: any
+  status: number
+  errors: ValidationResult| string[]
+  result?: void
+}
 
-export type HandleResultSuccess<OUT> = {result: OUT, cursor?:string, more?:boolean}
+export type HandleResultSuccess<OUT> = {
+  result: OUT
+  cursor?:string
+  more?:boolean
+  errors?: void
+  errorType?:void
+}
+
 export type HandleResult<OUT> = HandleErrorResponse | HandleResultSuccess<OUT>;
 
 export const isContractInError = (tbd: any): tbd is HandleErrorResponse =>

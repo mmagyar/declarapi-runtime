@@ -94,9 +94,10 @@ const getByIdChecked = async (
 export const get = async <IN, OUT>(
   contract: ContractType<'GET', KVi, IN, OUT>,
   auth: AuthInput,
+  idIn: undefined | string | string[],
   input:IN
 ): Promise<HandleResult<OUT>> => {
-  const id: string | string[] = (input as any)?.id
+  const id: string | string[] = idIn || (input as any)?.id
   let cursor = (input as any)?.cursor
   const limit = (input as any)?. limit || 64
   const type = contract.implementation.backend

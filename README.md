@@ -74,3 +74,5 @@ For integration type tests, that relay on a real database,
 the best course of action is to execute each test on a different
 database / index / prefix so there is absolutely no crosstalk between
 tests, and they can run in parallel to make test run much quicker.
+
+If a test breaks in this repo, always look at the post first, since the other test relay on it's behavior to correctly execute.
