@@ -1,33 +1,44 @@
 import test, { ExecutionContext } from 'ava'
 import { processHandle } from './process.js'
-import { getContract, defaultHandler } from './testHelpers.spec.js'
+import { getContract, mockHandle, TestContractOut, TestContractIn } from './testHelpers.spec.js'
 import { RequestHandlingError } from './RequestHandlingError.js'
 import { HandleErrorResponse, isContractInError } from './globalTypes.js'
 /* eslint-disable no-throw-literal */
 
 const expectError = (t:ExecutionContext, result:any, cb:(response:HandleErrorResponse)=>void, status?:number) => {
-  if (isContractInError(result?.response)) {
+  if (isContractInError(result)) {
     if (typeof status !== 'undefined') {
       t.is(result?.status, status)
-      t.is(result?.response.status, status)
+      t.is(result?.status, status)
     }
-    t.truthy(result?.response)
-    cb(result.response)
+    t.truthy(result)
+    cb(result)
   } else t.fail(JSON.stringify(result, null, 2))
 }
 
 test('when there is no error, it returns the result as an object', async (t) => {
-  t.deepEqual(await processHandle(getContract())({ id: 'abc', a: 'in', c: 'abc' }),
-   { status: 200, response: { b: 'in', c: 'abc', id: 'abc' } } as any)
+  const getResult = await processHandle(getContract())({ id: 'abc', a: 'in' })
+  t.is(getResult.status, 200)
+  if (isContractInError(getResult)) return t.fail('Could not get')
+  t.is(typeof getResult.result.b, 'string')
+  t.is(typeof getResult.result.id, 'string')
 
-  t.deepEqual(await processHandle(getContract({ method: 'POST', handle: defaultHandler }))({ id: 'abc', a: 'in', c: 'abc' }),
-   { status: 201, response: { b: 'in', c: 'abc', id: 'abc' } } as any)
+  const postResult = await processHandle(getContract({ method: 'POST', handle: mockHandle }))({ id: 'abc', a: 'in' })
+  t.is(postResult.status, 201)
+  if (isContractInError(postResult)) return t.fail('Could not get')
+  t.is(typeof postResult.result.b, 'string')
+  t.is(typeof postResult.result.id, 'string')
 })
 
 test('Handle receives the id passed to process output', async (t) => {
-  const result = await processHandle(getContract())({ a: 'in', c: 'abc' }, 'abc2')
+  const result = await processHandle(getContract({
+    handle: async (input:TestContractIn, _:any, __:any, id?:string) => {
+      const out :TestContractOut = { b: input.a, id: id || '' }
+      return { result: out }
+    }
+  }))({ a: 'in', c: 'abc' }, 'abc2')
 
-  t.deepEqual(result, { status: 200, response: { b: 'in', c: 'abc', id: 'abc2' } } as any)
+  t.deepEqual(result, { status: 200, result: { b: 'in', id: 'abc2' } } as any)
 })
 
 test('empty input will fail validation', async (t) => {
@@ -140,28 +151,30 @@ test('primitive exceptions thrown in the handler are converted to error output o
 })
 
 test('authentication true: a user id is set, run handler', async (t) => {
-  const handler = processHandle(getContract({ handle: defaultHandler, authentication: true }))
+  const handler = processHandle(getContract({ handle: mockHandle, authentication: true }))
 
   const result = await handler({ id: 'a', a: 'abc' }, undefined, { sub: 'userId' })
   t.is(result.status, 200)
   // @ts-ignore
-  t.deepEqual(result.response, { id: 'a', b: 'abc', c: undefined })
+  if (isContractInError(result)) return t.fails('Error with running get')
+  t.is(typeof result.result.id, 'string')
+  t.is(typeof result.result.b, 'string')
 })
 
 test('authentication true: without a user id set, immediately return with 401', async (t) => {
-  const handler = processHandle(getContract({ handle: defaultHandler, authentication: true }))
+  const handler = processHandle(getContract({ handle: mockHandle, authentication: true }))
 
   expectError(t, await handler({ id: 'a', a: 'abc' }), x => t.is(x.errorType, 'unauthorized'), 401)
 })
 
 test('authentication roles: without a user id set, immediately return with 401', async (t) => {
-  const handler = processHandle(getContract({ handle: defaultHandler, authentication: ['admin', 'editor'] }))
+  const handler = processHandle(getContract({ handle: mockHandle, authentication: ['admin', 'editor'] }))
 
   expectError(t, await handler({ id: 'a', a: 'abc' }), x => t.is(x.errorType, 'unauthorized'), 401)
 })
 
 test('authentication roles: without proper permissions, immediately return with 403', async (t) => {
-  const handler = processHandle(getContract({ handle: defaultHandler, authentication: ['admin', 'editor'] }))
+  const handler = processHandle(getContract({ handle: mockHandle, authentication: ['admin', 'editor'] }))
 
   expectError(t, await handler({ id: 'a', a: 'abc' }, undefined, { sub: 'userId' }), x => t.is(x.errorType, 'forbidden'), 403)
   expectError(t, await handler({ id: 'a', a: 'abc' }, undefined, { sub: 'userId' }), x => t.is(x.errorType, 'forbidden'), 403)

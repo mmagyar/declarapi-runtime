@@ -51,6 +51,7 @@ export type HandleErrorResponse ={
 
 export type HandleResultSuccess<OUT> = {
   result: OUT
+  status?:number,
   cursor?:string
   more?:boolean
   errors?: void
@@ -59,5 +60,5 @@ export type HandleResultSuccess<OUT> = {
 
 export type HandleResult<OUT> = HandleErrorResponse | HandleResultSuccess<OUT>;
 
-export const isContractInError = (tbd: any): tbd is HandleErrorResponse =>
+export const isContractInError = (tbd: HandleResult<any>): tbd is HandleErrorResponse =>
   Boolean(tbd.errors)

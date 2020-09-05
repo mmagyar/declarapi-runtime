@@ -1,6 +1,7 @@
 import test from 'ava'
 import { wrapHandleWithValidation } from './contractValidation.js'
 import { getContract } from './testHelpers.spec.js'
+import { isContractInError } from './globalTypes.js'
 
 test('returns error on invalid input', async (t) => {
   const contract = getContract()
@@ -61,7 +62,8 @@ test('returns error if handler is undefined', async (t) => {
 test('returns result if all validations pass', async (t) => {
   const contract = getContract()
   const result = wrapHandleWithValidation(contract)
-  t.deepEqual(await result({ id: 'something', a: 'valid', c: 'im optional' }), {
-    result: { id: 'something', b: 'valid', c: 'im optional' }
-  } as any)
+  const res = await result({ id: 'something', a: 'valid', c: 'im optional' })
+  if (isContractInError(res)) return t.fail('validation should have passed')
+  t.is(typeof res.result.b, 'string')
+  t.is(typeof res.result.id, 'string')
 })

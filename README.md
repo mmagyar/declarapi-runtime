@@ -63,8 +63,10 @@ The default usage of this package are ES6 modules,
  it is not very usable since it is using a package that is ES6
  first. An import rewrite would be needed for cjs build to work correctly.
 
-# testing
+## testing
 Aiming for 100% test coverage, since any uncovered code may be dead code.
+Without a test for that line, the author of the code may not have though
+it through, writing a test for it makes sure that the code is fully understood.
 
 This project uses Ava for testing, with C8 for code coverage
 
@@ -81,3 +83,7 @@ database / index / prefix so there is absolutely no crosstalk between
 tests, and they can run in parallel to make test run much quicker.
 
 If a test breaks in this repo, always look at the post first, since the other test relay on it's behavior to correctly execute.
+
+
+## Roadmap / plans / TODO
+[Roadmap / plans / TODO can be found in TODO.md](TODO.md)
