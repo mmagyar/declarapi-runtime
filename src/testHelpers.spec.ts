@@ -3,6 +3,7 @@ import { ContractType, ManageableFields, AuthenticationDefinition, AuthInput, Ht
 import { Validation, generate, validate } from 'yaschva'
 import { AbstractBackend } from './backendAbstract.js'
 import { getProvider } from './backendProviders.js'
+import { createIndex } from './backendElasticsearch.js'
 test('uses test contract generation', t => t.pass())
 export type TestContractOut = { id: string, b: string }
 export type TestContractIn = { id?: string, a: string }
@@ -33,6 +34,7 @@ export const runTestArray = <A extends Implementation>(
     const implementation: Implementation = { ...contracts.get.implementation }
     const alphanumericTestName = (Date.now() + testE[0].trim().toLowerCase().replace(' ', '_').replace(/[^a-z0-9]/gi, '')).substring(0, 255)
     let name = ''
+    let testSetup:((inputS: (t:ExecutionContext)=> Promise<void>) =>(t:ExecutionContext) => Promise<void>)|undefined
     switch (implementation.type) {
       case 'key-value':
         implementation.prefix = alphanumericTestName
@@ -44,9 +46,15 @@ export const runTestArray = <A extends Implementation>(
 
         process.env.ELASTIC_UNAUTHENTICATED = 'true'
         process.env.ELASTIC_HOST = 'http://localhost:9200'
+        testSetup = (inputs) => async (t:ExecutionContext) => {
+          await createIndex(implementation.index)
+          return inputs(t)
+        }
+
         break
       case 'manual':
         throw new Error('manual implementation not supported with these tests')
+      default: throw new Error('not supported ' + JSON.stringify(implementation))
     }
 
     const postContract: CONTRACT_COLLECTION<any> = {
@@ -57,7 +65,11 @@ export const runTestArray = <A extends Implementation>(
       put: { ...contracts.put, implementation }
 
     }
-    test(`${name} ${testE[0]}`, testE[1](getProvider(implementation.type), postContract))
+    if (testSetup) {
+      test(`${name} ${testE[0]}`, testSetup(testE[1](getProvider(implementation.type), postContract)))
+    } else {
+      test(`${name} ${testE[0]}`, testE[1](getProvider(implementation.type), postContract))
+    }
   }
 }
 
@@ -134,13 +146,13 @@ type GET_INPUT = { id?: string | string[] } | undefined
 type GET_OUTPUT = ALL_DATA[]
 
 const implementations: {implementation: Implementation, skip: string[]}[] = [
-  // {
-  //  implementation: {
-  //    type: 'elasticsearch',
-  //    index: 'testIndex'
-  //  },
-  //  skip: []
-  // },
+//  { this does not work correctly yet
+//    implementation: {
+//      type: 'elasticsearch',
+//      index: 'testIndex'
+//    },
+//    skip: []
+//  },
   {
     implementation: {
       type: 'key-value',

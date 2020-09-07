@@ -8,7 +8,10 @@ const getTests = ():[string, TestFn][] => {
 
   test('can post generated data', ExpectGood(
     (db, c) => db.post(c.post, {}, 'uuid1', generate(c.post.arguments)),
-    (r, t, c) => { t.is(validate(c.post.returns, r.result).result, 'pass') }))
+    (r, t, c) => {
+      t.is(validate(c.post.returns, r.result).result, 'pass',
+        JSON.stringify(validate(c.post.returns, r.result)))
+    }))
 
   test('can not override posted record', ExpectBad(
     async (db, c) => {
