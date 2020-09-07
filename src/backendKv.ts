@@ -95,7 +95,7 @@ export const get = async <IN, OUT>(
   contract: ContractType<'GET', KVi, IN, OUT>,
   auth: AuthInput,
   idIn: undefined | string | string[],
-  input:IN
+  input?:IN
 ): Promise<HandleResult<OUT>> => {
   const id: string | string[] = idIn || (input as any)?.id
   let cursor = (input as any)?.cursor
@@ -175,13 +175,20 @@ export const del = async <IN, OUT>(
   id: string|string[]
 ): Promise<HandleResult<OUT>> => {
   if (Array.isArray(id)) {
-    await Promise.all(id.map(x => del(contract, auth, x)))
+    const data = await Promise.all(id.map(x => del(contract, auth, x)))
+    const errors = data.reduce(
+      (p, c) => p.concat(Array.isArray(c.errors) && c.errors.length
+        ? c.errors
+        : (c.errorType ? [c.errorType] : [])), [] as (string[]))
+    if (errors.length) {
+      return { errorType: 'forbidden', data, status: 403, errors }
+    }
     return { result: {} as any }
   }
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
   const result = await getByIdChecked(id, auth, type, index, contract.authentication, contract.manageFields)
-  if (!result || result.length === 0) return forbidden(id)
+  if (!result || result.length === 0) return forbidden(id, [`forbidden - could not delete item: ${id} `])
 
   await client(type).delete(keyId(index, id))
   return { result: {} as any }

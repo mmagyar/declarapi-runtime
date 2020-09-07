@@ -1,11 +1,11 @@
 import test, { ExecutionContext } from 'ava'
-import { ContractType, ManageableFields, AuthenticationDefinition, AuthInput, HttpMethods, Implementation, HandleResult, HandleResultSuccess, isContractInError, HandleErrorResponse, Implementations } from './globalTypes.js'
+import { ContractType, ManageableFields, AuthenticationDefinition, AuthInput, HttpMethods, Implementation, HandleResult, HandleResultSuccess, isContractInError, HandleErrorResponse, Implementations, AnyContract } from './globalTypes.js'
 import { Validation, generate, validate } from 'yaschva'
 import { AbstractBackend } from './backendAbstract.js'
 import { getProvider } from './backendProviders.js'
 test('uses test contract generation', t => t.pass())
-export type TestContractOut = {id:string, b:string}
-export type TestContractIn = {id?:string, a:string}
+export type TestContractOut = { id: string, b: string }
+export type TestContractIn = { id?: string, a: string }
 export type TestContractType<T extends HttpMethods, IMPL extends Implementation, IN, OUT> =
   ContractType<T, IMPL, IN, OUT>
 
@@ -19,11 +19,11 @@ export type CONTRACT_COLLECTION<A extends Implementation> = {
 
 export type ANY_CONTRACTS = CONTRACT_COLLECTION<Implementation>
 
-export type TestFn = (backend:AbstractBackend<any>, postContract:CONTRACT_COLLECTION<any>)=>(t:ExecutionContext)=> Promise<void>
-export const runTestArray = <A extends Implementation>(contracts:CONTRACT_COLLECTION<A>, tests: [string, TestFn][]) => {
+export type TestFn = (backend: AbstractBackend<any>, postContract: CONTRACT_COLLECTION<any>) => (t: ExecutionContext) => Promise<void>
+export const runTestArray = <A extends Implementation>(contracts: CONTRACT_COLLECTION<A>, tests: [string, TestFn][]) => {
   if (!contracts.get) throw new Error(JSON.stringify(contracts, null, 2))
   for (const testE of tests) {
-    const implementation :Implementation = { ...contracts.get.implementation }
+    const implementation: Implementation = { ...contracts.get.implementation }
     const alphanumericTestName = (Date.now() + testE[0].trim().toLowerCase().replace(' ', '_').replace(/[^a-z0-9]/gi, '')).substring(0, 255)
     switch (implementation.type) {
       case 'key-value':
@@ -36,7 +36,7 @@ export const runTestArray = <A extends Implementation>(contracts:CONTRACT_COLLEC
         throw new Error('manual implementation not supported with these tests')
     }
 
-    const postContract:CONTRACT_COLLECTION<any> = {
+    const postContract: CONTRACT_COLLECTION<any> = {
       get: { ...contracts.get, implementation },
       post: { ...contracts.post, implementation },
       del: { ...contracts.del, implementation },
@@ -48,7 +48,7 @@ export const runTestArray = <A extends Implementation>(contracts:CONTRACT_COLLEC
   }
 }
 
-export const mockHandle = async <METHOD extends HttpMethods, IMPL extends Implementation, IN, OUT>(input: IN, _: AuthInput, contract:ContractType<METHOD, IMPL, IN, OUT>) : Promise<HandleResult<OUT>> => {
+export const mockHandle = async <METHOD extends HttpMethods, IMPL extends Implementation, IN, OUT>(input: IN, _: AuthInput, contract: ContractType<METHOD, IMPL, IN, OUT>): Promise<HandleResult<OUT>> => {
   const valid = validate(contract.arguments, input)
   if (valid.result === 'fail') {
     return { errorType: 'validation error', errors: [], status: 400 }
@@ -56,21 +56,21 @@ export const mockHandle = async <METHOD extends HttpMethods, IMPL extends Implem
   return { result: generate(contract.returns) }
 }
 
-export const getContract = <T extends HttpMethods, IMPL extends Implementation=Implementations.manual, IN = TestContractIn, OUT = TestContractOut>(input: {
-  manageFields?:ManageableFields,
-  authentication?:AuthenticationDefinition,
-  name?:string,
-  handle? : (input: IN, auth: AuthInput, contract:TestContractType<T, IMPL, IN, OUT>, id?:string) => Promise<HandleResult<OUT>>,
+export const getContract = <T extends HttpMethods, IMPL extends Implementation = Implementations.manual, IN = TestContractIn, OUT = TestContractOut>(input: {
+  manageFields?: ManageableFields,
+  authentication?: AuthenticationDefinition,
+  name?: string,
+  handle?: (input: IN, auth: AuthInput, contract: TestContractType<T, IMPL, IN, OUT>, id?: string) => Promise<HandleResult<OUT>>,
   method?: T,
   implementation?: IMPL,
-  arguments ?: Validation
+  arguments?: Validation
   returns?: Validation
 } = { handle: mockHandle }
-):TestContractType<T, IMPL, IN, OUT> => {
+): TestContractType<T, IMPL, IN, OUT> => {
   return {
     authentication: input.authentication || false,
     arguments: input.arguments || { id: ['string', '?'], a: 'string', c: ['?', 'string'] },
-    implementation: input.implementation || ({ type: 'manual' })as any,
+    implementation: input.implementation || ({ type: 'manual' }) as any,
     returns: input.returns || { id: 'string', b: 'string', c: ['?', 'string'] },
     handle: input.handle,
     type: (input.method || 'GET') as T,
@@ -79,31 +79,49 @@ export const getContract = <T extends HttpMethods, IMPL extends Implementation=I
   }
 }
 
-export const ExpectGood = <OUT=unknown>(
-  doAction: ((backend:AbstractBackend<any>, contract:ANY_CONTRACTS, t:ExecutionContext) => Promise<HandleResult<OUT>>),
-  asserts: ((a:HandleResultSuccess<OUT>, t:ExecutionContext, contract:ANY_CONTRACTS) => (void|Promise<void>))) =>
-    (backend:AbstractBackend<any>, contract:ANY_CONTRACTS) => async (t:ExecutionContext) => {
-      const result = await doAction(backend, contract, t)
-      return isContractInError(result)
-        ? t.fail('Expected success: ' + JSON.stringify(result, null, 2))
-        : asserts(result, t, contract)
-    }
+export const ExpectGood = <OUT = unknown>(
+  doAction: (
+    backend: AbstractBackend<any>,
+    contract: ANY_CONTRACTS,
+    t: ExecutionContext
+  ) => Promise<HandleResult<OUT>>,
+  asserts: (
+    a: HandleResultSuccess<OUT>,
+    t: ExecutionContext,
+    contract: ANY_CONTRACTS
+  ) => void | Promise<void>) =>
+    (backend: AbstractBackend<any>, contract: ANY_CONTRACTS) =>
+      async (t: ExecutionContext) => {
+        const result = await doAction(backend, contract, t)
+        return isContractInError(result)
+          ? t.fail('Expected success: ' + JSON.stringify(result, null, 2))
+          : asserts(result, t, contract)
+      }
 
-export const ExpectBad = <OUT=unknown>(
-  doAction: ((backend:AbstractBackend<any>, contract:ANY_CONTRACTS, t:ExecutionContext) => Promise<HandleResult<OUT>>),
-  asserts: ((a:HandleErrorResponse, t:ExecutionContext, contract:ANY_CONTRACTS) => (void|Promise<void>))) =>
-    (backend:AbstractBackend<any>, contract:ANY_CONTRACTS) => async (t:ExecutionContext) => {
-      const result = await doAction(backend, contract, t)
-      return isContractInError(result)
-        ? asserts(result, t, contract)
-        : t.fail('Expected success: ' + JSON.stringify(result, null, 2))
-    }
-type ALL_DATA ={a:string, b?:number}
-type GET_INPUT = {id?:string | string[]} | undefined
+export const ExpectBad = <OUT = unknown>(
+  doAction: (
+    backend: AbstractBackend<any>,
+    contract: ANY_CONTRACTS,
+    t: ExecutionContext
+  ) => Promise<HandleResult<OUT>>,
+  asserts: (
+    a: HandleErrorResponse,
+    t: ExecutionContext,
+    contract: ANY_CONTRACTS
+  ) => void | Promise<void>) =>
+    (backend: AbstractBackend<any>, contract: ANY_CONTRACTS) =>
+      async (t: ExecutionContext) => {
+        const result = await doAction(backend, contract, t)
+        return isContractInError(result)
+          ? asserts(result, t, contract)
+          : t.fail('Expected success: ' + JSON.stringify(result, null, 2))
+      }
+type ALL_DATA = { a: string, b?: number }
+type GET_INPUT = { id?: string | string[] } | undefined
 type GET_OUTPUT = ALL_DATA[]
-const implementation :Implementation = { type: 'key-value', backend: 'memory', prefix: 'test', allowGetAll: true }
+const implementation: Implementation = { type: 'key-value', backend: 'memory', prefix: 'test', allowGetAll: true }
 export const baseDataSchema = { a: 'string', b: ['number', '?'] }
-export const contractCollection = ():CONTRACT_COLLECTION<typeof implementation> => ({
+export const contractCollection = (): CONTRACT_COLLECTION<typeof implementation> => ({
   post: getContract<'POST', typeof implementation>({
     method: 'POST',
     implementation,
@@ -136,3 +154,27 @@ export const contractCollection = ():CONTRACT_COLLECTION<typeof implementation> 
   })
 
 })
+
+export const postSome = async <A extends unknown>(db: AbstractBackend<any>,
+  contract: ContractType<'POST', any, any, A>,
+  authInput: AuthInput = {},
+  num: number = 20): Promise<HandleResult<A>[]> => {
+  const id = (i: number) => `my_id_${authInput?.sub || ''}${i}`
+  return (await Promise.all(Array.from(Array(num))
+    .map((_, i) => db.post(contract, authInput, id(i), generate(contract.arguments)))))
+    .map((x, i) => {
+      if (x.errors) throw new Error(`Failed to post with id ${id(i)}: ${JSON.stringify(x, null, 2)}`)
+      return x
+    })
+}
+
+export const withAuth = <T extends AnyContract>(c: T): T => ({
+  ...c,
+  authentication: ['admin', { createdBy: true }],
+  manageFields: { createdBy: true },
+  returns: { $array: { ...((c.returns as any).$array), createdBy: 'string' } }
+})
+export const throwOnError = <A =unknown>(input:HandleResult<A>): input is HandleResultSuccess<A> => {
+  if (isContractInError(input)) throw new Error('error during test setup' + JSON.stringify(input, null, 2))
+  return true
+}

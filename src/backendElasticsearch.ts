@@ -51,7 +51,7 @@ export const get = async <IN, OUT>(
   contract: ContractType<'GET', ES, IN, OUT>,
   auth: AuthInput,
   idIn: string | string[] | undefined,
-  input:IN
+  input?:IN
 ): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
   const { manageFields, authentication: authDef } = contract

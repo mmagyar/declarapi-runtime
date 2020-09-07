@@ -8,6 +8,12 @@
 
 Runtime dependencies of [declarapi](https://declarapi.com)
 
+This package is being made to service [declarapi](https://declarapi.com),
+but will work without out.
+
+Using it without the generated contracts is possible, 
+but in that case the correctness of the contracts are not guaranteed.
+
 ## This package provides all runtime functionality:
 
 ### Validation the incoming and outgoing data to the specified schema
