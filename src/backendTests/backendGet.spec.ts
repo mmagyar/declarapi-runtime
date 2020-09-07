@@ -1,6 +1,6 @@
 import { TestFn, runTestArray, ExpectGood, ExpectBad, contractCollection, ANY_CONTRACTS, postSome, withAuth } from '../testHelpers.spec.js'
 import { AbstractBackend } from '../backendAbstract.js'
-import { AnyContract, AuthInput } from '../globalTypes.js'
+import { AuthInput } from '../globalTypes.js'
 import { validate } from 'yaschva'
 
 const getTests = (): [string, TestFn][] => {
@@ -101,4 +101,4 @@ const getTests = (): [string, TestFn][] => {
   return testsToRun
 }
 
-runTestArray(contractCollection(), getTests())
+contractCollection().map(x => runTestArray(x, getTests()))

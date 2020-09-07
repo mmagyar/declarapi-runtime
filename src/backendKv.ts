@@ -1,4 +1,3 @@
-
 import { v4 as uuid } from 'uuid'
 import { ContractType, ManageableFields, AuthInput, AuthenticationDefinition, Implementations, KeyValueStoreTypes, HandleResult } from './globalTypes.js'
 import { memoryKV } from './memoryKv.js'

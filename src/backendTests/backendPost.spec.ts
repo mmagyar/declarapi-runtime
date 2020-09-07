@@ -2,7 +2,7 @@ import { AnyContract } from '../globalTypes.js'
 import { generate, validate } from 'yaschva'
 import { TestFn, runTestArray, ExpectGood, ExpectBad, contractCollection } from '../testHelpers.spec.js'
 
-const backendTests = ():[string, TestFn][] => {
+const getTests = ():[string, TestFn][] => {
   const testsToRun:[string, TestFn][] = []
   const test = (key:string, fn:TestFn) => testsToRun.push([key, fn])
 
@@ -55,4 +55,4 @@ const backendTests = ():[string, TestFn][] => {
   return testsToRun
 }
 
-runTestArray(contractCollection(), backendTests())
+contractCollection().map(x => runTestArray(x, getTests()))

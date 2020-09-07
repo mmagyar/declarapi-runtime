@@ -20,17 +20,30 @@ export type CONTRACT_COLLECTION<A extends Implementation> = {
 export type ANY_CONTRACTS = CONTRACT_COLLECTION<Implementation>
 
 export type TestFn = (backend: AbstractBackend<any>, postContract: CONTRACT_COLLECTION<any>) => (t: ExecutionContext) => Promise<void>
-export const runTestArray = <A extends Implementation>(contracts: CONTRACT_COLLECTION<A>, tests: [string, TestFn][]) => {
+export const runTestArray = <A extends Implementation>(
+  input: {contracts: CONTRACT_COLLECTION<A>, skip:string[]},
+  tests: [string, TestFn][]) => {
+  const { contracts, skip } = input
+
   if (!contracts.get) throw new Error(JSON.stringify(contracts, null, 2))
   for (const testE of tests) {
+    if (skip.indexOf(testE[0]) !== -1) {
+      continue
+    }
     const implementation: Implementation = { ...contracts.get.implementation }
     const alphanumericTestName = (Date.now() + testE[0].trim().toLowerCase().replace(' ', '_').replace(/[^a-z0-9]/gi, '')).substring(0, 255)
+    let name = ''
     switch (implementation.type) {
       case 'key-value':
         implementation.prefix = alphanumericTestName
+        name = `kv${JSON.stringify(implementation.backend)}${(implementation.allowGetAll && '-getAll') || ''}`
         break
       case 'elasticsearch':
         implementation.index = alphanumericTestName
+        name = 'elastic'
+
+        process.env.ELASTIC_UNAUTHENTICATED = 'true'
+        process.env.ELASTIC_HOST = 'http://localhost:9200'
         break
       case 'manual':
         throw new Error('manual implementation not supported with these tests')
@@ -44,7 +57,7 @@ export const runTestArray = <A extends Implementation>(contracts: CONTRACT_COLLE
       put: { ...contracts.put, implementation }
 
     }
-    test(testE[0], testE[1](getProvider(implementation.type), postContract))
+    test(`${name} ${testE[0]}`, testE[1](getProvider(implementation.type), postContract))
   }
 }
 
@@ -119,40 +132,82 @@ export const ExpectBad = <OUT = unknown>(
 type ALL_DATA = { a: string, b?: number }
 type GET_INPUT = { id?: string | string[] } | undefined
 type GET_OUTPUT = ALL_DATA[]
-const implementation: Implementation = { type: 'key-value', backend: 'memory', prefix: 'test', allowGetAll: true }
-export const baseDataSchema = { a: 'string', b: ['number', '?'] }
-export const contractCollection = (): CONTRACT_COLLECTION<typeof implementation> => ({
-  post: getContract<'POST', typeof implementation>({
-    method: 'POST',
-    implementation,
-    arguments: baseDataSchema,
-    returns: baseDataSchema
-  }),
-  get: getContract<'GET', typeof implementation, GET_INPUT, GET_OUTPUT>({
-    method: 'GET',
-    implementation,
-    arguments: { id: ['string', '?', { $array: 'string' }] },
-    returns: { $array: baseDataSchema }
-  }),
-  del: getContract({
-    method: 'DELETE',
-    implementation,
-    arguments: {},
-    returns: {}
-  }),
-  put: getContract({
-    method: 'PUT',
-    implementation,
-    arguments: baseDataSchema,
-    returns: {}
-  }),
-  patch: getContract({
-    method: 'PATCH',
-    implementation,
-    arguments: { a: ['?', 'string'], b: ['number', '?'] },
-    returns: {}
-  })
 
+const implementations: {implementation: Implementation, skip: string[]}[] = [
+  // {
+  //  implementation: {
+  //    type: 'elasticsearch',
+  //    index: 'testIndex'
+  //  },
+  //  skip: []
+  // },
+  {
+    implementation: {
+      type: 'key-value',
+      backend: 'memory',
+      prefix: 'test',
+      allowGetAll: true
+    },
+    skip: []
+  },
+  {
+    implementation: {
+      type: 'key-value',
+      backend: 'memory',
+      prefix: 'test'
+    },
+    /** These tests are skipped since they relay on getting all records */
+    skip: [
+      'get id and input is optional',
+      'get posted id and input is optional, all is returned',
+      'get with permissions: posted id and input is optional, unauthorized gets nothing back',
+      'get with permissions: posted id and input is optional, all is returned for authorized user by permission',
+      'get with permissions: posted id and input is optional, all is returned for authorized user by userId',
+      'get with permissions: posted id and input is optional, all is returned for authorized user by userId (with records from multiple users)'
+    ]
+  }
+]
+
+export const baseDataSchema = { a: 'string', b: ['number', '?'] }
+
+export const contractCollection = (): {contracts: CONTRACT_COLLECTION<Implementation>,
+  skip:string[]}[] => implementations.map(impls => {
+  const implementation = impls.implementation
+  return ({
+    skip: impls.skip,
+    contracts: {
+      post: getContract<'POST', typeof implementation>({
+        method: 'POST',
+        implementation,
+        arguments: baseDataSchema,
+        returns: baseDataSchema
+      }),
+      get: getContract<'GET', typeof implementation, GET_INPUT, GET_OUTPUT>({
+        method: 'GET',
+        implementation,
+        arguments: { id: ['string', '?', { $array: 'string' }] },
+        returns: { $array: baseDataSchema }
+      }),
+      del: getContract({
+        method: 'DELETE',
+        implementation,
+        arguments: {},
+        returns: {}
+      }),
+      put: getContract({
+        method: 'PUT',
+        implementation,
+        arguments: baseDataSchema,
+        returns: {}
+      }),
+      patch: getContract({
+        method: 'PATCH',
+        implementation,
+        arguments: { a: ['?', 'string'], b: ['number', '?'] },
+        returns: {}
+      })
+    }
+  })
 })
 
 export const postSome = async <A extends unknown>(db: AbstractBackend<any>,
@@ -174,6 +229,7 @@ export const withAuth = <T extends AnyContract>(c: T): T => ({
   manageFields: { createdBy: true },
   returns: { $array: { ...((c.returns as any).$array), createdBy: 'string' } }
 })
+
 export const throwOnError = <A =unknown>(input:HandleResult<A>): input is HandleResultSuccess<A> => {
   if (isContractInError(input)) throw new Error('error during test setup' + JSON.stringify(input, null, 2))
   return true

@@ -65,4 +65,4 @@ const getTests = (): [string, TestFn][] => {
   return testsToRun
 }
 
-runTestArray(contractCollection(), getTests())
+contractCollection().map(x => runTestArray(x, getTests()))
