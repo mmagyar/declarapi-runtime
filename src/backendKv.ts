@@ -175,11 +175,11 @@ export const del = async <IN, OUT>(
   id: string|string[]
 ): Promise<HandleResult<OUT>> => {
   if (Array.isArray(id)) {
-    const data = await Promise.all(id.map(x => del(contract, auth, x)))
+    const data = await Promise.all(id.map(async (x) => ({ id, result: await del(contract, auth, x) })))
     const errors = data.reduce(
-      (p, c) => p.concat(Array.isArray(c.errors) && c.errors.length
-        ? c.errors
-        : (c.errorType ? [c.errorType] : [])), [] as (string[]))
+      (p, c) => p.concat(Array.isArray(c.result.errors) && c.result.errors.length
+        ? c.result.errors
+        : []), [] as (string[]))
     if (errors.length) {
       return { errorType: 'forbidden', data, status: 403, errors }
     }
@@ -209,9 +209,15 @@ export const patch = async <IN, OUT>(
   for (const [key, value] of Object.entries(body)) {
     newBody[key] = value
   }
+  if (contract.manageFields.createdBy === true) {
+    newBody.createdBy = result[0].createdBy
+  }
 
   const key = keyId(index, id)
-  const { metadata } = await client(type).getWithMetadata(key)
+  const { value, metadata } = await client(type).getWithMetadata(key)
+  if (value == null) {
+    return { errorType: 'notFound', data: id, status: 404, errors: [] }
+  }
 
   await client(type).put(key, JSON.stringify(newBody), { metadata })
 
@@ -235,7 +241,10 @@ export const put = async <IN, OUT>(
   }
 
   const key = keyId(index, id)
-  const { metadata } = await client(type).getWithMetadata(key)
+  const { value, metadata } = await client(type).getWithMetadata(key)
+  if (value == null) {
+    return { errorType: 'notFound', data: id, status: 404, errors: [] }
+  }
 
   await client(type).put(key, JSON.stringify(newBody), { metadata })
 

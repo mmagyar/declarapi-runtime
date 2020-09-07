@@ -114,7 +114,7 @@ export const ExpectBad = <OUT = unknown>(
         const result = await doAction(backend, contract, t)
         return isContractInError(result)
           ? asserts(result, t, contract)
-          : t.fail('Expected success: ' + JSON.stringify(result, null, 2))
+          : t.fail('Expected error, received success: ' + JSON.stringify(result, null, 2))
       }
 type ALL_DATA = { a: string, b?: number }
 type GET_INPUT = { id?: string | string[] } | undefined

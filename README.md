@@ -82,6 +82,8 @@ Ava was chosen over other frameworks
  and that it has no magic, tests are just plain code.
 It makes it easy to reuse test code, with different backend providers,
 since they should all work the mostly the same.
+Ava also makes it easy to run each test multiple times, 
+which can be very useful when testing with randomly generated data.
 
 For integration type tests, that relay on a real database,
 the best course of action is to execute each test on a different
