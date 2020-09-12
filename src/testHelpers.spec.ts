@@ -155,7 +155,9 @@ type GET_INPUT = { id?: string | string[] } | undefined
 type GET_OUTPUT = ALL_DATA[]
 
 const implementations: {implementation: Implementation, skip: string[]}[] = [
-/*  { // this does not work correctly yet
+  /** Test should run, but the automated testing pipeline
+   * does not have elasticsearch installed yet   */
+  /*  {
     implementation: {
       type: 'elasticsearch',
       index: 'testIndex'
