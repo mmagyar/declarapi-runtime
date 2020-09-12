@@ -11,15 +11,23 @@ const fetchLimited = async (
   nowOriginal? : number
 ): Promise<Response> => {
   const now = nowOriginal || Date.now()
-  const fetched = await fetch(url, init)
-  if (fetched.status === 429) {
-    console.log('Rate Limited', Date.now() - now, fetched.headers, await fetched.json())
-    await delay()
-    return fetchLimited(url, init, now)
+  try {
+    const fetched = await fetch(url, init)
+    if (fetched.status === 429) {
+      console.log('Rate Limited', Date.now() - now, fetched.headers, await fetched.json())
+      await delay()
+      return fetchLimited(url, init, now)
+    }
+
+    // const requestTook = Date.now() - now
+    // if (nowOriginal) console.log('REQUEST TOOK', requestTook)
+    return fetched
+  } catch (err) {
+    if (err.code === 'ECONNRESET') {
+      return fetchLimited(url, init)
+    }
+    throw err
   }
-  // const requestTook = Date.now() - now
-  // if (nowOriginal) console.log('REQUEST TOOK', requestTook)
-  return fetched
 }
 
 const fetchWithThrow = async (
@@ -33,8 +41,9 @@ const fetchWithThrow = async (
 
   if (status >= 400) {
     if (!throwOnKeyNotFound && status === 404) {
-      return undefined
+      return null
     }
+    // console.log(status, result, init, url)
     throw new RequestHandlingError(result, status)
   }
   return result
@@ -79,7 +88,7 @@ const fetchWithThrow = async (
 //   10045: 'deprecated endpoint',
 //   10046: 'too many bulk requests',
 //   10047: 'invalid metadata'
-// }
+
 export const workerKv = (): KV => {
   const accountIdentifier = process.env.WORKER_ACCOUNT
   if (!accountIdentifier) throw new Error('Account id not set on WORKER_ACCOUNT')
@@ -104,10 +113,11 @@ export const workerKv = (): KV => {
 
     const url = `${namespaced}/keys${params.length ? '?' + params.join('&') : ''}`
 
-    const response = await fetchWithThrow(url, { headers })
+    const response = JSON.parse(await fetchWithThrow(url, { headers }))
     if (!response.success) {
       throw new Error(JSON.stringify(response))
     }
+
     return {
       cursor: response.result_info.cursor,
       keys: response.result,
@@ -116,9 +126,9 @@ export const workerKv = (): KV => {
   }
 
   const get = async <T extends KvDataTypes>(key:string, type?:T) : Promise<GetResultType<T>|null> => {
-    if (type !== 'text' || type !== 'json') throw new Error('API only supports text type')
+    if (type && (type !== 'text' && type !== 'json')) throw new Error(`API only supports text type, requested ${type}`)
 
-    const result = await fetchWithThrow(`${namespaced}/values/${key}`, { headers })
+    const result = await fetchWithThrow(`${namespaced}/values/${key}`, { headers }, false)
     if (!result) return null
 
     if (type === 'text') return result
@@ -129,7 +139,6 @@ export const workerKv = (): KV => {
     const { expiration, expirationTtl, metadata } = additional || {}
 
     const form = new FormData()
-
     if (metadata) { form.append('metadata', JSON.stringify(metadata)) }
 
     if (typeof value === 'string') {

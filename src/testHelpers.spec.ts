@@ -157,7 +157,7 @@ type GET_OUTPUT = ALL_DATA[]
 const implementations: {implementation: Implementation, skip: string[]}[] = [
   /** Test should run, but the automated testing pipeline
    * does not have elasticsearch installed yet   */
-  /*  {
+  /* {
     implementation: {
       type: 'elasticsearch',
       index: 'testIndex'
@@ -177,6 +177,22 @@ const implementations: {implementation: Implementation, skip: string[]}[] = [
     implementation: {
       type: 'key-value',
       backend: 'memory',
+      prefix: 'test'
+    },
+    /** These tests are skipped since they relay on getting all records */
+    skip: [
+      'get id and input is optional',
+      'get posted id and input is optional, all is returned',
+      'get with permissions: posted id and input is optional, unauthorized gets nothing back',
+      'get with permissions: posted id and input is optional, all is returned for authorized user by permission',
+      'get with permissions: posted id and input is optional, all is returned for authorized user by userId',
+      'get with permissions: posted id and input is optional, all is returned for authorized user by userId (with records from multiple users)'
+    ]
+  },
+  {
+    implementation: {
+      type: 'key-value',
+      backend: 'workerKV',
       prefix: 'test'
     },
     /** These tests are skipped since they relay on getting all records */

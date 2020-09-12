@@ -50,9 +50,9 @@ export const destroyClient = (key:string) => {
   delete clientInstance[key]
 }
 export const init = (key:any):KV => {
-  if (key === 'worker') {
-    clientInstance.worker = workerKv()
-    return clientInstance.worker as KV
+  if (key === 'workerKV') {
+    clientInstance.workerKV = workerKv()
+    return clientInstance.workerKV as KV
   }
 
   if (key === 'memory') {
@@ -98,7 +98,7 @@ export const get = async <IN, OUT>(
 ): Promise<HandleResult<OUT>> => {
   const id: string | string[] = idIn || (input as any)?.id
   let cursor = (input as any)?.cursor
-  const limit = (input as any)?. limit || 64
+  const limit = (input as any)?.limit || 64
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
   if (Array.isArray(id)) {
