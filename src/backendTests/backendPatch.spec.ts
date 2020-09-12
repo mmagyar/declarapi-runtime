@@ -24,7 +24,7 @@ const getTests = (): [string, TestFn][] => {
       throwOnError(og)
       const generated = generate(c.patch.arguments)
       throwOnError(await db.patch(c.patch, {}, 'my_id_1', generated))
-      t.deepEqual((await db.get(c.get, {}, 'my_id_1')).result[0], { ...og.result[0], ...generated })
+      t.deepEqual((await db.get(c.get, {}, 'my_id_1')).result, [{ ...og.result[0], ...generated }])
     }
   )
 

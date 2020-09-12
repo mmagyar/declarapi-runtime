@@ -4,6 +4,7 @@ import { Validation, generate, validate } from 'yaschva'
 import { AbstractBackend } from './backendAbstract.js'
 import { getProvider } from './backendProviders.js'
 import { createIndex } from './backendElasticsearch.js'
+import crypto from 'crypto'
 test('uses test contract generation', t => t.pass())
 export type TestContractOut = { id: string, b: string }
 export type TestContractIn = { id?: string, a: string }
@@ -32,7 +33,11 @@ export const runTestArray = <A extends Implementation>(
       continue
     }
     const implementation: Implementation = { ...contracts.get.implementation }
-    const alphanumericTestName = (Date.now() + testE[0].trim().toLowerCase().replace(' ', '_').replace(/[^a-z0-9]/gi, '')).substring(0, 255)
+    const id = crypto.randomBytes(16).toString('base64')
+    const time = Math.round(Date.now() / 1000)
+    const simpleName = testE[0].trim().toLowerCase().replace(' ', '_').replace(/[^a-z0-9]/gi, '')
+
+    const alphanumericTestName = ('t_' + time + id + simpleName).substring(0, 255)
     let name = ''
     let testSetup:((inputS: (t:ExecutionContext)=> Promise<void>) =>(t:ExecutionContext) => Promise<void>)|undefined
     switch (implementation.type) {
