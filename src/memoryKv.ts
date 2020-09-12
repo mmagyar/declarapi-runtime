@@ -1,4 +1,4 @@
-import { KvListReturn, KV, ValueType, ListEntry, GetResultType, KvDataTypes } from './abstractKv'
+import { KvListReturn, KV, ValueType, ListEntry, GetResultType, KvDataTypes } from './backendKv.js'
 
 function ab2str (buf:ArrayBuffer):string {
   return String.fromCharCode.apply(null, (new Uint16Array(buf) as any))
@@ -80,5 +80,3 @@ export const memoryKV = (): KV => {
 
   return { list, get, put, delete: destroy, getWithMetadata }
 }
-
-export default memoryKV

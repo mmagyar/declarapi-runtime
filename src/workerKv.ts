@@ -1,7 +1,7 @@
-import { KV, ValueType, KvListReturn, KvDataTypes, GetResultType } from './abstractKv.js'
 import FormData from 'form-data'
 import fetch, { Response, RequestInfo, RequestInit } from 'node-fetch'
 import { RequestHandlingError } from './RequestHandlingError.js'
+import { KV, KvListReturn, KvDataTypes, GetResultType, ValueType } from './backendKv.js'
 
 const delay = async (time = 1000) => new Promise((resolve) => setTimeout(() => resolve(), time))
 
@@ -171,5 +171,3 @@ export const workerKv = (): KV => {
 
   return { list, get, put, delete: destroy, getWithMetadata }
 }
-
-export default workerKv

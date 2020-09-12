@@ -1,6 +1,8 @@
 *.js
 *.d.ts
 *.js.map
+./cjs
+.DS_Store
 # Logs
 logs
 *.log
