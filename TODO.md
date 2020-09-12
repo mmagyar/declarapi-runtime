@@ -5,7 +5,7 @@ Interface tweaks
 ----------------
 - Change output of delete backend function, right now there is no output,
   and an error is returned even if only a single id had a permission error.
-  
+
 
 Features
 --------
@@ -14,7 +14,6 @@ Features
 
 Testing
 -------
-- Write generic testing facility for data connector, so all data connectors can be tested with a single test suit (in progress)
 - Write test for get paging
 
 

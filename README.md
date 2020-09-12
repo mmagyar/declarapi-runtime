@@ -69,7 +69,7 @@ The default usage of this package are ES6 modules,
  it is not very usable since it is using a package that is ES6
  first. An import rewrite would be needed for cjs build to work correctly.
 
-## testing
+## Testing
 Aiming for 100% test coverage, since any uncovered code may be dead code.
 Without a test for that line, the author of the code may not have though
 it through, writing a test for it makes sure that the code is fully understood.
