@@ -23,6 +23,11 @@ const getTests = (): [string, TestFn][] => {
     (a, t) => t.is(a.status, 404)
     ))
 
+  test('deleting non existent record returns 404',
+    ExpectBad(async (db, c) => await db.delete(c.del, {}, 'my_id_1'),
+      (a, t) => t.is(a.status, 404)
+    ))
+
   test('can delete by multiple ids',
     ExpectGood(async (db, c) => {
       await postSome(db, c.post)

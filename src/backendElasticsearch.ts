@@ -2,7 +2,7 @@ import elastic from '@elastic/elasticsearch'
 import { v4 as uuid } from 'uuid'
 import { AuthInput, ContractType, Implementations, AuthenticationDefinition, ManageableFields, HandleResult } from './globalTypes.js'
 import { mapFilter } from 'microtil'
-import { AbstractBackend, getUserIdFields, filterToAccess, authorizedByPermission, forbidden } from './backendAbstract.js'
+import { AbstractBackend, filterToAccess, authorizedByPermission, forbidden, notFound } from './backendAbstract.js'
 type Client = elastic.Client
 const Client = elastic.Client
 let clientInstance: Client | undefined
@@ -57,12 +57,8 @@ export const get = async <IN, OUT>(
   const index = contract.implementation.index.toLowerCase()
   const { manageFields, authentication: authDef } = contract
   const userIdFilter: any = {
-    bool: {
-      should: getUserIdFields(manageFields).map(userIdField => {
-        const r:any = { term: { } }
-        r.term[userIdField] = auth.sub
-        return r
-      })
+    match: {
+      createdBy: auth.sub || ''
     }
   }
 
@@ -74,10 +70,13 @@ export const get = async <IN, OUT>(
     return { result: filterToAccess(mapFilter(docs, (x: any) => x._source), authDef, auth, manageFields) as any }
   } else if (id) {
     try {
-      const got = await getByIdChecked(index, id, authDef, auth, manageFields) as any
-      return { result: got }
+      const got = await getByIdChecked(index, id, authDef, auth, manageFields) as any[]
+      if (got.length === 0) {
+        return forbidden(id)
+      }
+      return { result: (got as any) }
     } catch (got) {
-      if (got.meta.statusCode === 404) return { errorType: 'notFound', status: 404, data: id, errors: [] }
+      if (got.meta.statusCode === 404) return notFound({ id, input })
       throw got
     }
   } else if (search) {
@@ -99,11 +98,20 @@ export const get = async <IN, OUT>(
   }
 
   const searchAll:any = { index, size: contract.implementation.maxResults || defaultSize }
-  if (!authorizedByPermission(authDef, auth)) { searchAll.body = { query: userIdFilter } }
+  if (!authorizedByPermission(authDef, auth)) {
+    searchAll.body = {
+      query: {
+        bool: {
+          must: [userIdFilter]
+        }
+      }
+    }
+  }
+
   const all = await client().search(searchAll)
   const result = new Array(all.body.hits.hits).flatMap((y: any) => y.map((x: any) => x._source))
 
-  console.log('IN THE END', result)
+  // console.log('IN THE END', result)
   return { result: result as any }
 }
 
@@ -142,13 +150,29 @@ export const del = async <IN, OUT>(
 ): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
   if (Array.isArray(id)) {
-    await Promise.all(id.map(x => del<IN, OUT>(contract, auth, x)))
+    const data = await Promise.all(
+      id.map(async (x) => ({ id, result: await del(contract, auth, x) })))
+    const errors = data.reduce(
+      (p, c) => p.concat(Array.isArray(c.result.errors) && c.result.errors.length
+        ? c.result.errors
+        : []), [] as (string[]))
+    if (errors.length) {
+      return { errorType: 'forbidden', data, status: 403, errors }
+    }
     return { result: {} as any }
   }
-  const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
-  if (!result || result.length === 0) return forbidden(id)
+  try {
+    const result = await getByIdChecked(
+      index, id, contract.authentication, auth, contract.manageFields)
+    if (!result || result.length === 0) {
+      return forbidden(id, ['Can\'t delete, unauthorized'])
+    }
 
-  await client().delete({ index, id, refresh: 'wait_for' })
+    await client().delete({ index, id, refresh: 'wait_for' })
+  } catch (error) {
+    if (error.meta.statusCode === 404) return { errorType: 'notFound', status: 404, data: id, errors: [] }
+    throw error
+  }
   return { result: {} as any }
 }
 
@@ -159,16 +183,24 @@ export const patch = async <IN, OUT>(
   body: IN
 ): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
-  const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
-  if (!result || result.length === 0) return forbidden({ id, body })
-
-  await client().update(
-    {
-      index: index.toLocaleLowerCase(),
+  try {
+    const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
+    if (!result || result.length === 0) return forbidden({ id, body })
+    let newBody:any = body
+    if (contract.manageFields.createdBy === true) {
+      newBody = { ...(body as any) }
+      newBody.createdBy = result[0].createdBy
+    }
+    await client().update({
+      index,
       refresh: 'wait_for',
       id,
-      body: { doc: body }
+      body: { doc: newBody }
     })
+  } catch (error) {
+    if (error.meta.statusCode === 404) return notFound({ id, body })
+    throw error
+  }
   return { result: {} as any }
 }
 
@@ -179,23 +211,29 @@ export const put = async <IN, OUT>(
   body: IN
 ): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
-  const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
+  try {
+    const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
 
-  if (!result || result.length === 0) return forbidden({ id, body })
+    if (!result || result.length === 0) return forbidden({ id, body })
 
-  const newBody :any = { ...body }
-  if (contract.manageFields.createdBy === true) {
-    newBody.createdBy = result[0].createdBy
+    let newBody:any = body
+    if (contract.manageFields.createdBy === true) {
+      newBody = { ...(body as any) }
+      newBody.createdBy = result[0].createdBy
+    }
+
+    await client().index(
+      {
+        index,
+        refresh: 'wait_for',
+        id,
+        body: newBody
+      })
+    return { result: {} as any }
+  } catch (error) {
+    if (error.meta.statusCode === 404) return notFound({ id, body })
+    throw error
   }
-
-  await client().index(
-    {
-      index,
-      refresh: 'wait_for',
-      id,
-      body: newBody
-    })
-  return { result: {} as any }
 }
 
 export const getElasticsearchProvider = ():AbstractBackend<ES> => ({

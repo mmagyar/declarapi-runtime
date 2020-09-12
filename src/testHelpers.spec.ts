@@ -5,6 +5,10 @@ import { AbstractBackend } from './backendAbstract.js'
 import { getProvider } from './backendProviders.js'
 import { createIndex } from './backendElasticsearch.js'
 import crypto from 'crypto'
+
+import { inspect } from 'util'
+inspect.defaultOptions = { depth: 6 }
+
 test('uses test contract generation', t => t.pass())
 export type TestContractOut = { id: string, b: string }
 export type TestContractIn = { id?: string, a: string }
@@ -33,7 +37,7 @@ export const runTestArray = <A extends Implementation>(
       continue
     }
     const implementation: Implementation = { ...contracts.get.implementation }
-    const id = crypto.randomBytes(16).toString('base64')
+    const id = crypto.randomBytes(16).toString('hex').toLowerCase()
     const time = Math.round(Date.now() / 1000)
     const simpleName = testE[0].trim().toLowerCase().replace(' ', '_').replace(/[^a-z0-9]/gi, '')
 
@@ -151,13 +155,13 @@ type GET_INPUT = { id?: string | string[] } | undefined
 type GET_OUTPUT = ALL_DATA[]
 
 const implementations: {implementation: Implementation, skip: string[]}[] = [
-//  { this does not work correctly yet
-//    implementation: {
-//      type: 'elasticsearch',
-//      index: 'testIndex'
-//    },
-//    skip: []
-//  },
+/*  { // this does not work correctly yet
+    implementation: {
+      type: 'elasticsearch',
+      index: 'testIndex'
+    },
+    skip: []
+  }, */
   {
     implementation: {
       type: 'key-value',

@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { ContractType, ManageableFields, AuthInput, AuthenticationDefinition, Implementations, KeyValueStoreTypes, HandleResult } from './globalTypes.js'
 import { memoryKV } from './memoryKv.js'
 import { workerKv } from './workerKv.js'
-import { AbstractBackend, forbidden } from './backendAbstract.js'
+import { AbstractBackend, forbidden, notFound } from './backendAbstract.js'
 
 export type ValueType = string | ArrayBuffer | ArrayBufferView | ReadableStream
 export type KvDataTypes = 'text' | 'json' | 'arrayBuffer' |'stream'
@@ -108,7 +108,7 @@ export const get = async <IN, OUT>(
     return { result: filterToAccess(docs, contract.authentication, auth, contract.manageFields) as any }
   } else if (id) {
     const result = await client(type).get(keyId(index, id), 'json')
-    if (!result) return { errorType: 'notFound', data: input, status: 404, errors: [] }
+    if (!result) return notFound({ id, input })
     const filtered = filterToAccess([result], contract.authentication, auth, contract.manageFields)
     if (filtered.length === 0) return forbidden(input)
     return { result: filtered as any }
@@ -174,7 +174,8 @@ export const del = async <IN, OUT>(
   id: string|string[]
 ): Promise<HandleResult<OUT>> => {
   if (Array.isArray(id)) {
-    const data = await Promise.all(id.map(async (x) => ({ id, result: await del(contract, auth, x) })))
+    const data = await Promise.all(
+      id.map(async (x) => ({ id, result: await del(contract, auth, x) })))
     const errors = data.reduce(
       (p, c) => p.concat(Array.isArray(c.result.errors) && c.result.errors.length
         ? c.result.errors
@@ -187,6 +188,11 @@ export const del = async <IN, OUT>(
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
   const result = await getByIdChecked(id, auth, type, index, contract.authentication, contract.manageFields)
+
+  if (result.length === 1 && result[0] === null) {
+    return notFound({ id })
+  }
+
   if (!result || result.length === 0) return forbidden(id, [`forbidden - could not delete item: ${id} `])
 
   await client(type).delete(keyId(index, id))
@@ -215,7 +221,7 @@ export const patch = async <IN, OUT>(
   const key = keyId(index, id)
   const { value, metadata } = await client(type).getWithMetadata(key)
   if (value == null) {
-    return { errorType: 'notFound', data: id, status: 404, errors: [] }
+    return notFound({ id, body })
   }
 
   await client(type).put(key, JSON.stringify(newBody), { metadata })
@@ -242,7 +248,7 @@ export const put = async <IN, OUT>(
   const key = keyId(index, id)
   const { value, metadata } = await client(type).getWithMetadata(key)
   if (value == null) {
-    return { errorType: 'notFound', data: id, status: 404, errors: [] }
+    return notFound({ id, body })
   }
 
   await client(type).put(key, JSON.stringify(newBody), { metadata })

@@ -72,9 +72,16 @@ export type AbstractBackend<K extends Implementation> = {
   put: Put<K>
 }
 
-export const forbidden = (data: any, errors: string[] = []) => ({
+export const forbidden = (data: any, errors: string[] = ['forbidden']) => ({
   errorType: 'forbidden',
   data,
   status: 403,
+  errors
+})
+
+export const notFound = (data: any, errors: string[] = ['not found']) => ({
+  errorType: 'notFound',
+  data,
+  status: 404,
   errors
 })

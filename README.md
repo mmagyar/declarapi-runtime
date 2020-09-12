@@ -11,7 +11,7 @@ Runtime dependencies of [declarapi](https://declarapi.com)
 This package is being made to service [declarapi](https://declarapi.com),
 but will work without out.
 
-Using it without the generated contracts is possible, 
+Using it without the generated contracts is possible,
 but in that case the correctness of the contracts are not guaranteed.
 
 ## This package provides all runtime functionality:
@@ -82,7 +82,7 @@ Ava was chosen over other frameworks
  and that it has no magic, tests are just plain code.
 It makes it easy to reuse test code, with different backend providers,
 since they should all work the mostly the same.
-Ava also makes it easy to run each test multiple times, 
+Ava also makes it easy to run each test multiple times,
 which can be very useful when testing with randomly generated data.
 
 For integration type tests, that relay on a real database,
@@ -90,7 +90,10 @@ the best course of action is to execute each test on a different
 database / index / prefix so there is absolutely no crosstalk between
 tests, and they can run in parallel to make test run much quicker.
 
-If a test breaks in this repo, always look at the post first, since the other test relay on it's behavior to correctly execute.
+If a test breaks in this repo,
+always look at the post
+[backendPost.spec.ts](src/backendTests/backendPost.spec.ts) first,
+since the other test relay on it's behavior to correctly execute.
 
 
 ## Roadmap / plans / TODO

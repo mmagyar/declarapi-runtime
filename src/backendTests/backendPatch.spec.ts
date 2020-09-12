@@ -29,12 +29,22 @@ const getTests = (): [string, TestFn][] => {
   )
 
   test('can not patch non existing item', ExpectBad(
-    async (db, c) => {
-      const generated = generate(c.patch.arguments)
-      return db.patch(c.patch, {}, 'my_id_1', generated)
-    // t.deepEqual((await db.get(c.get, {}, 'my_id_1')).result[0], generated)
-    },
+    async (db, c) =>
+      // Put arguments are used here,
+      // since patch arguments are optional,
+      // and may generate an empty object
+      db.patch(c.patch, {}, 'my_id_1', generate(c.put.arguments)),
     (r, t) => t.is(r.status, 404)
+  ))
+
+  test('patching with empty object results in no action', ExpectGood(
+    async (db, c, t) => {
+      const posted = await postSome(db, c.post)
+      const patchRes = await db.patch(c.patch, {}, 'my_id_1', {})
+      t.deepEqual((await db.get(c.get, {}, 'my_id_1')).result[0], posted[1].result)
+      return patchRes
+    },
+    (r, t) => t.deepEqual(r.result, {})
   ))
 
   test('can not patch by id record not owned', ExpectBad(
