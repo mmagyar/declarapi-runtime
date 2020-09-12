@@ -24,4 +24,7 @@ jobs:
     - run: npm run build --if-present
     - run: npm run test:coverage
       env:
+        WORKER_KV_TOKEN: ${{ secrets.WORKER_KV_TOKEN }}
+        WORKER_ACCOUNT: ${{ secrets.WORKER_ACCOUNT }}
+        WORKER_KV_NAMESPACE: ${{ secrets.WORKER_KV_NAMESPACE }}
         CI: true
