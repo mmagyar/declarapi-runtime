@@ -1,7 +1,7 @@
 import test, { ExecutionContext } from 'ava'
 import { ContractType, AuthenticationDefinition, AuthInput, HttpMethods, Implementation, HandleResult, HandleResultSuccess, isContractInError, HandleErrorResponse, Implementations, AnyContract } from './globalTypes.js'
 import { Validation, generate, validate } from 'yaschva'
-import { AbstractBackend, BackendMetadata, metadataValidation } from './backendAbstract.js'
+import { AbstractBackend, BackendDataStructure, BackendMetadata, metadataValidation } from './backendAbstract.js'
 import { getProvider } from './backendProviders.js'
 import { createIndex } from './backendElasticsearch.js'
 import crypto from 'crypto'
@@ -207,7 +207,7 @@ export const contractCollection = (): {contracts: CONTRACT_COLLECTION<Implementa
         method: 'GET',
         implementation,
         arguments: { id: ['string', '?', { $array: 'string' }] },
-        returns: { $array: { data: baseDataSchema, metadata: metadataValidation } }
+        returns: { $array: { value: baseDataSchema, metadata: metadataValidation } }
       }),
       del: getContract({
         method: 'DELETE',
@@ -231,24 +231,27 @@ export const contractCollection = (): {contracts: CONTRACT_COLLECTION<Implementa
   })
 })
 
-export const postSome = async (db: AbstractBackend<any>,
-  contract: ContractType<'POST', any, any, BackendMetadata>,
+export const postSome = async <A extends unknown>(db: AbstractBackend<any>,
+  contract: ContractType<'POST', any, A, BackendMetadata>,
   authInput: AuthInput = {},
-  num: number = 20): Promise<HandleResult<BackendMetadata>[]> => {
+  num: number = 20): Promise<BackendDataStructure<A>[]> => {
   const id = (i: number) => `my_id_${authInput?.sub || ''}${i}`
   return (await Promise.all(Array.from(Array(num))
-    .map((_, i) => db.post(contract, authInput, id(i), generate(contract.arguments)))))
+    .map(async (_, i) => {
+      const value = generate(contract.arguments)
+      return { metadata: await db.post(contract, authInput, id(i), value), value: value }
+    })))
     .map((x, i) => {
-      if (x.errors) throw new Error(`Failed to post with id ${id(i)}: ${JSON.stringify(x, null, 2)}`)
-      return x
+      if (x.metadata.errors) {
+        throw new Error(`Failed to post with id ${id(i)}: ${JSON.stringify(x, null, 2)}`)
+      }
+      return { metadata: x.metadata.result, value: x.value } as BackendDataStructure<A>
     })
 }
 
 export const withAuth = <T extends AnyContract>(c: T): T => ({
   ...c,
-  authentication: ['admin', { createdBy: true }],
-  manageFields: { createdBy: true },
-  returns: { $array: { ...((c.returns as any).$array), createdBy: 'string' } }
+  authentication: ['admin', { createdBy: true }]
 })
 
 export const throwOnError = <A =unknown>(input:HandleResult<A>): input is HandleResultSuccess<A> => {

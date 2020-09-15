@@ -48,7 +48,8 @@ const getTests = (): [string, TestFn][] => {
     async (db, c) => (await postSome(db, c.post)) && db.get(c.get, {}, 'my_id_2', undefined),
     (a, t, c) => {
       t.is((a.result).length, 1)
-      t.is(validate(c.get.returns, a.result).result, 'pass')
+      t.is(validate(c.get.returns, a.result).result, 'pass',
+        JSON.stringify(validate(c.get.returns, a.result), null, 2))
     }))
 
   test('get posted by id in body', ExpectGood(
@@ -68,14 +69,16 @@ const getTests = (): [string, TestFn][] => {
   test('get with permissions: posted id and input is optional, all is returned for authorized user by permission', ExpectGood(
     async (db, c) => (await postWithAuth(db, c, { sub: 'userA' })) && db.get(withAuth(c.get), { sub: 'userB', permissions: ['admin'] }, undefined, undefined),
     (a, t, c) => {
-      t.is(validate(withAuth(c.get).returns, a.result).result, 'pass')
+      t.is(validate(withAuth(c.get).returns, a.result).result, 'pass',
+        JSON.stringify(validate(withAuth(c.get).returns, a.result), null, 2))
       t.is((a.result).length, defaultNum)
     }))
 
   test('get with permissions: posted id and input is optional, all is returned for authorized user by userId', ExpectGood(
     async (db, c) => (await postWithAuth(db, c, { sub: 'userA' })) && db.get(withAuth(c.get), { sub: 'userA', permissions: [] }, undefined, undefined),
     (a, t, c) => {
-      t.is(validate(withAuth(c.get).returns, a.result).result, 'pass')
+      t.is(validate(withAuth(c.get).returns, a.result).result, 'pass',
+        JSON.stringify([a.result, validate(withAuth(c.get).returns, a.result)], null, 2))
       t.is((a.result).length, defaultNum)
     }))
 

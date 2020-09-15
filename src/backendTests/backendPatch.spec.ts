@@ -24,7 +24,9 @@ const getTests = (): [string, TestFn][] => {
       throwOnError(og)
       const generated = generate(c.patch.arguments)
       throwOnError(await db.patch(c.patch, {}, 'my_id_1', generated))
-      t.deepEqual((await db.get(c.get, {}, 'my_id_1')).result, [{ ...og.result[0], ...generated }])
+      t.deepEqual((await db.get(c.get, {}, 'my_id_1'))
+        .result.map((x:any) => x.value),
+      [{ ...og.result[0].value, ...generated }])
     }
   )
 
@@ -41,10 +43,11 @@ const getTests = (): [string, TestFn][] => {
     async (db, c, t) => {
       const posted = await postSome(db, c.post)
       const patchRes = await db.patch(c.patch, {}, 'my_id_1', {})
-      t.deepEqual((await db.get(c.get, {}, 'my_id_1')).result[0], posted[1].result)
+      t.deepEqual((await db.get(c.get, {}, 'my_id_1')).result[0].metadata, patchRes.result)
+      t.deepEqual((await db.get(c.get, {}, 'my_id_1')).result[0].value, posted[1].value)
       return patchRes
     },
-    (r, t) => t.deepEqual(r.result, {} as any)
+    (r, t) => t.true(typeof r.result.createdAt === 'string')
   ))
 
   test('can not patch by id record not owned', ExpectBad(
@@ -61,49 +64,11 @@ const getTests = (): [string, TestFn][] => {
       await postSome(db, withAuth(c.post), { sub: 'userA' })
       throwOnError(await db.get(withAuth(c.get), { sub: 'userA' }, 'my_id_userA1'))
       const generated :any = { ...generate(c.patch.arguments), createdBy: 'whoEver' }
-      throwOnError(await db.patch(withAuth(c.patch), { sub: 'userA' }, 'my_id_userA1', generated))
+      throwOnError(await db.patch(withAuth(c.patch),
+        { sub: 'userB', permissions: ['admin'] }, 'my_id_userA1', generated))
       return db.get(withAuth(c.get), { sub: 'userA' }, 'my_id_userA1')
-    }, (r, t) => t.is(r.result[0].createdBy, 'userA')
+    }, (r, t) => t.is(r.result[0].metadata.createdBy, 'userA')
   ))
-
-  test('can delete by multiple ids',
-    ExpectGood(async (db, c) => {
-      await postSome(db, c.post)
-      throwOnError(await db.get(c.get, {}, 'my_id_1'))
-      throwOnError(await db.get(c.get, {}, 'my_id_3'))
-      throwOnError(await db.get(c.get, {}, 'my_id_6'))
-      throwOnError(await db.delete(c.del, {}, ['my_id_1', 'my_id_3', 'my_id_6']))
-      return db.get(c.get, {}, ['my_id_1', 'my_id_3', 'my_id_6'])
-    },
-    (a, t) => t.deepEqual(a.result, [])
-    )
-  )
-
-  test('can not delete one unauthorized',
-    ExpectBad(async (db, c) => {
-      await postSome(db, withAuth(c.post), { sub: 'userA' })
-      throwOnError(await db.get(c.get, {}, 'my_id_userA1'))
-      return await db.delete(withAuth(c.del), {}, 'my_id_userA1')
-    },
-    (a, t) => t.is(a.status, 403)
-    )
-  )
-
-  test('can not delete many unauthorized',
-    ExpectBad(async (db, c) => {
-      await postSome(db, withAuth(c.post), { sub: 'userA' })
-      await postSome(db, withAuth(c.post), { sub: 'userB' })
-      throwOnError(await db.get(c.get, {}, 'my_id_userA1'))
-      throwOnError(await db.get(c.get, {}, 'my_id_userB3'))
-      throwOnError(await db.get(c.get, {}, 'my_id_userB6'))
-      return await db.delete(withAuth(c.del), {}, ['my_id_userA1', 'my_id_userB3', 'my_id_userB6'])
-    },
-    (a, t) => {
-      t.is(a.status, 403)
-      t.is((a.errors as any).length, 3)
-    }
-    )
-  )
 
   return testsToRun
 }

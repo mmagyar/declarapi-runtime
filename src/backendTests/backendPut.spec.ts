@@ -23,7 +23,7 @@ const getTests = (): [string, TestFn][] => {
       throwOnError(await db.get(c.get, {}, 'my_id_1'))
       const generated = generate(c.put.arguments)
       throwOnError(await db.put(c.put, {}, 'my_id_1', generated))
-      t.deepEqual((await db.get(c.get, {}, 'my_id_1')).result[0], generated)
+      t.deepEqual((await db.get(c.get, {}, 'my_id_1')).result[0].value, generated)
     }
   )
 
@@ -50,49 +50,11 @@ const getTests = (): [string, TestFn][] => {
       await postSome(db, withAuth(c.post), { sub: 'userA' })
       throwOnError(await db.get(withAuth(c.get), { sub: 'userA' }, 'my_id_userA1'))
       const generated :any = { ...generate(c.put.arguments), createdBy: 'whoEver' }
-      throwOnError(await db.put(withAuth(c.put), { sub: 'userA' }, 'my_id_userA1', generated))
+      throwOnError(await db.put(withAuth(c.put),
+        { sub: 'userB', permissions: ['admin'] }, 'my_id_userA1', generated))
       return db.get(withAuth(c.get), { sub: 'userA' }, 'my_id_userA1')
-    }, (r, t) => t.is(r.result[0].createdBy, 'userA')
+    }, (r, t) => t.is(r.result[0].metadata.createdBy, 'userA')
   ))
-
-  test('can delete by multiple ids',
-    ExpectGood(async (db, c) => {
-      await postSome(db, c.post)
-      throwOnError(await db.get(c.get, {}, 'my_id_1'))
-      throwOnError(await db.get(c.get, {}, 'my_id_3'))
-      throwOnError(await db.get(c.get, {}, 'my_id_6'))
-      throwOnError(await db.delete(c.del, {}, ['my_id_1', 'my_id_3', 'my_id_6']))
-      return db.get(c.get, {}, ['my_id_1', 'my_id_3', 'my_id_6'])
-    },
-    (a, t) => t.deepEqual(a.result, [])
-    )
-  )
-
-  test('can not delete one unauthorized',
-    ExpectBad(async (db, c) => {
-      await postSome(db, withAuth(c.post), { sub: 'userA' })
-      throwOnError(await db.get(c.get, {}, 'my_id_userA1'))
-      return await db.delete(withAuth(c.del), {}, 'my_id_userA1')
-    },
-    (a, t) => t.is(a.status, 403)
-    )
-  )
-
-  test('can not delete many unauthorized',
-    ExpectBad(async (db, c) => {
-      await postSome(db, withAuth(c.post), { sub: 'userA' })
-      await postSome(db, withAuth(c.post), { sub: 'userB' })
-      throwOnError(await db.get(c.get, {}, 'my_id_userA1'))
-      throwOnError(await db.get(c.get, {}, 'my_id_userB3'))
-      throwOnError(await db.get(c.get, {}, 'my_id_userB6'))
-      return await db.delete(withAuth(c.del), {}, ['my_id_userA1', 'my_id_userB3', 'my_id_userB6'])
-    },
-    (a, t) => {
-      t.is(a.status, 403)
-      t.is((a.errors as any).length, 3)
-    }
-    )
-  )
 
   return testsToRun
 }

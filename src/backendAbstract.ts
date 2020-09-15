@@ -16,7 +16,7 @@ export type BackendMetadata = {
 
 }
 export type BackendDataStructure<OUT> = {
-  data: OUT,
+  value: OUT,
   metadata: BackendMetadata
 }
 
