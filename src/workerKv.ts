@@ -8,7 +8,8 @@ const delay = async (time = 1000) => new Promise((resolve) => setTimeout(() => r
 const fetchLimited = async (
   url: RequestInfo,
   init?: RequestInit,
-  nowOriginal? : number
+  nowOriginal? : number,
+  reTry:boolean = true
 ): Promise<Response> => {
   const now = nowOriginal || Date.now()
   try {
@@ -17,6 +18,9 @@ const fetchLimited = async (
       console.log('Rate Limited', Date.now() - now, fetched.headers, await fetched.json())
       await delay()
       return fetchLimited(url, init, now)
+    } else if (fetched.status === 404 && reTry) {
+      await delay(1500)
+      return fetchLimited(url, init, nowOriginal, false)
     }
 
     // const requestTook = Date.now() - now

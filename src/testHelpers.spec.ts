@@ -193,7 +193,8 @@ const implementations: {implementation: Implementation, skip: string[]}[] = [
     implementation: {
       type: 'key-value',
       backend: 'workerKV',
-      prefix: 'test'
+      prefix: 'test',
+      allowGetAll: true
     },
     /** These tests are skipped since they relay on getting all records */
     skip: [
