@@ -44,7 +44,7 @@ const getTests = (): [string, TestFn][] => {
       t.deepEqual((await db.get(c.get, {}, 'my_id_1')).result[0], posted[1].result)
       return patchRes
     },
-    (r, t) => t.deepEqual(r.result, {})
+    (r, t) => t.deepEqual(r.result, {} as any)
   ))
 
   test('can not patch by id record not owned', ExpectBad(

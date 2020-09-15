@@ -1,8 +1,8 @@
 import { v4 as uuid } from 'uuid'
-import { ContractType, ManageableFields, AuthInput, AuthenticationDefinition, Implementations, KeyValueStoreTypes, HandleResult } from './globalTypes.js'
+import { ContractType, AuthInput, AuthenticationDefinition, Implementations, KeyValueStoreTypes, HandleResult } from './globalTypes.js'
 import { memoryKV } from './memoryKv.js'
 import { workerKv } from './workerKv.js'
-import { AbstractBackend, forbidden, notFound } from './backendAbstract.js'
+import { AbstractBackend, BackendDataStructure, BackendMetadata, forbidden, notFound } from './backendAbstract.js'
 
 export type ValueType = string | ArrayBuffer | ArrayBufferView | ReadableStream
 export type KvDataTypes = 'text' | 'json' | 'arrayBuffer' |'stream'
@@ -73,10 +73,8 @@ const authorizedByPermission = (auth:AuthenticationDefinition, authInput:AuthInp
   typeof auth === 'boolean' ||
   auth.some(x => (authInput.permissions || []).some(y => x === y))
 
-const getUserIdFields = (fields:ManageableFields):string[] => Object.entries(fields).filter(x => x[1]).map(x => x[0])
-
-const filterToAccess = (input:any[], auth:AuthenticationDefinition, authInput:AuthInput, fields:ManageableFields):any[] =>
-  authorizedByPermission(auth, authInput) ? input : input.filter((x:any) => getUserIdFields(fields).some(y => x[y] === authInput.sub))
+const filterToAccess = (input:any[], auth:AuthenticationDefinition, authInput:AuthInput):any[] =>
+  authorizedByPermission(auth, authInput) ? input : input.filter((x:any) => x.createdBy === authInput.sub)
 const keyId = (index:string, id:string):string => `${index}:records:${id}`
 type KVi = Implementations.keyValue
 
@@ -85,12 +83,12 @@ const getByIdChecked = async (
   auth:AuthInput,
   type:KeyValueStoreTypes,
   index:string,
-  authDef: AuthenticationDefinition,
-  manageFields:ManageableFields) => {
+  authDef: AuthenticationDefinition
+) => {
   const result = await client(type).get(keyId(index, id), 'json')
-  return filterToAccess([result], authDef, auth, manageFields)
+  return filterToAccess([result], authDef, auth)
 }
-export const get = async <IN, OUT>(
+export const get = async <IN, OUT extends Array<BackendDataStructure<unknown>>>(
   contract: ContractType<'GET', KVi, IN, OUT>,
   auth: AuthInput,
   idIn: undefined | string | string[],
@@ -98,18 +96,18 @@ export const get = async <IN, OUT>(
 ): Promise<HandleResult<OUT>> => {
   const id: string | string[] = idIn || (input as any)?.id
   let cursor = (input as any)?.cursor
-  const limit = (input as any)?. limit || 64
+  const limit = (input as any)?.limit || 64
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
   if (Array.isArray(id)) {
     if (id.length === 0) return { result: [] as any }
     const docs = (await Promise.all(id.map(x => client(type).get(keyId(index, x), 'json'))))
       .filter(x => x != null)
-    return { result: filterToAccess(docs, contract.authentication, auth, contract.manageFields) as any }
+    return { result: filterToAccess(docs, contract.authentication, auth) as any }
   } else if (id) {
     const result = await client(type).get(keyId(index, id), 'json')
     if (!result) return notFound({ id, input })
-    const filtered = filterToAccess([result], contract.authentication, auth, contract.manageFields)
+    const filtered = filterToAccess([result], contract.authentication, auth)
     if (filtered.length === 0) return forbidden(input)
     return { result: filtered as any }
   }
@@ -131,48 +129,40 @@ export const get = async <IN, OUT>(
   if (result.list_complete) cursor = null
 
   return {
-    result: (await Promise.all(listId) as any).filter((x:any) => x != null),
-    cursor: result.cursor,
-    more: !result.list_complete
+    result: (await Promise.all(listId) as any).filter((x:any) => x != null)
+    // cursor: result.cursor,
+    //  more: !result.list_complete
   }
 }
 
-export const post = async <IN, OUT>(
-  contract: ContractType<'POST', KVi, IN, OUT>,
+export const post = async <IN>(
+  contract: ContractType<'POST', KVi, IN, BackendMetadata>,
   auth:AuthInput,
   id: string| undefined,
-  body: IN): Promise<HandleResult<OUT>> => {
+  body: IN): Promise<HandleResult<BackendMetadata>> => {
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
-
-  const newId = id || uuid()
-
-  const newBody: {[key:string]:any} = { ...body }
-
-  if (contract.manageFields.id === true) {
-    newBody.id = newId
+  const metadata:BackendMetadata = {
+    id: id || uuid(),
+    createdBy: auth.sub,
+    createdAt: (new Date()).toISOString()
   }
 
-  const metadata:{[key:string]:any} = {}
-  if (contract.manageFields.createdBy === true) {
-    newBody.createdBy = auth.sub
-    metadata.createdBy = auth.sub
-  }
   // Maybe skip check if it is generated?
-  const got = await client(type).get(keyId(index, newId))
+  const got = await client(type).get(keyId(index, metadata.id))
   if (got) return { errorType: 'conflict', data: body, status: 409, errors: [] }
 
   // TODO returned without the full id, that contains the index, or maybe always remove the index when returning?
-  await client(type).put(keyId(index, newId), JSON.stringify(newBody), { metadata })
+  await client(type).put(keyId(index, metadata.id), JSON.stringify(body), { metadata })
 
-  return { result: newBody as any }
+  return { result: metadata }
 }
 
-export const del = async <IN, OUT>(
-  contract: ContractType<'DELETE', KVi, IN, OUT>,
+export const del = async <IN>(
+  contract: ContractType<'DELETE', KVi, IN, BackendMetadata[]>,
   auth:AuthInput,
   id: string|string[]
-): Promise<HandleResult<OUT>> => {
+): Promise<HandleResult<BackendMetadata[]>> => {
   if (Array.isArray(id)) {
     const data = await Promise.all(
       id.map(async (x) => ({ id, result: await del(contract, auth, x) })))
@@ -187,7 +177,7 @@ export const del = async <IN, OUT>(
   }
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
-  const result = await getByIdChecked(id, auth, type, index, contract.authentication, contract.manageFields)
+  const result = await getByIdChecked(id, auth, type, index, contract.authentication)
 
   if (result.length === 1 && result[0] === null) {
     return notFound({ id })
@@ -199,24 +189,24 @@ export const del = async <IN, OUT>(
   return { result: {} as any }
 }
 
-export const patch = async <IN, OUT>(
-  contract: ContractType<'PATCH', KVi, IN, OUT>,
+export const patch = async <IN>(
+  contract: ContractType<'PATCH', KVi, IN, BackendMetadata>,
   auth:AuthInput,
   id: string,
   body: IN
-): Promise<HandleResult<OUT>> => {
+): Promise<HandleResult<BackendMetadata>> => {
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
-  const result = await getByIdChecked(id, auth, type, index, contract.authentication, contract.manageFields)
+  const result = await getByIdChecked(id, auth, type, index, contract.authentication)
   if (!result || result.length === 0) return forbidden({ id, body })
 
   const newBody:{[key:string]:any} = { ...result[0] }
   for (const [key, value] of Object.entries(body)) {
     newBody[key] = value
   }
-  if (contract.manageFields.createdBy === true) {
-    newBody.createdBy = result[0].createdBy
-  }
+  // if (contract.manageFields.createdBy === true) {
+  //  newBody.createdBy = result[0].createdBy
+  // }
 
   const key = keyId(index, id)
   const { value, metadata } = await client(type).getWithMetadata(key)
@@ -229,21 +219,21 @@ export const patch = async <IN, OUT>(
   return { result: {} as any }
 }
 
-export const put = async <IN, OUT>(
-  contract: ContractType<'PUT', KVi, IN, OUT>,
+export const put = async <IN>(
+  contract: ContractType<'PUT', KVi, IN, BackendMetadata>,
   auth:AuthInput,
   id: string,
   body: IN
-): Promise<HandleResult<OUT>> => {
+): Promise<HandleResult<BackendMetadata>> => {
   const type = contract.implementation.backend
   const index = contract.implementation.prefix
-  const result = await getByIdChecked(id, auth, type, index, contract.authentication, contract.manageFields)
+  const result = await getByIdChecked(id, auth, type, index, contract.authentication)
   if (!result || result.length === 0) return forbidden({ id, body })
 
   const newBody :{[key:string]:any} = { ...body }
-  if (contract.manageFields.createdBy === true) {
-    newBody.createdBy = result[0].createdBy
-  }
+  // if (contract.manageFields.createdBy === true) {
+  //   newBody.createdBy = result[0].createdBy
+  // }
 
   const key = keyId(index, id)
   const { value, metadata } = await client(type).getWithMetadata(key)

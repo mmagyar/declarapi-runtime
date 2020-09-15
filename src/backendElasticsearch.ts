@@ -1,10 +1,9 @@
 import elastic from '@elastic/elasticsearch'
 import { v4 as uuid } from 'uuid'
-import { AuthInput, ContractType, Implementations, AuthenticationDefinition, ManageableFields, HandleResult } from './globalTypes.js'
+import { AuthInput, ContractType, Implementations, AuthenticationDefinition, HandleResult } from './globalTypes.js'
 import { mapFilter } from 'microtil'
-import { AbstractBackend, filterToAccess, authorizedByPermission, forbidden, notFound } from './backendAbstract.js'
+import { AbstractBackend, authorizedByPermission, forbidden, notFound } from './backendAbstract.js'
 type Client = elastic.Client
-const Client = elastic.Client
 let clientInstance: Client | undefined
 export const client = () => clientInstance || init()
 export const destroyClient = () => {
@@ -28,7 +27,7 @@ export const init = () => {
     console.warn('Elasticsearch api credentials are not set')
   }
 
-  clientInstance = new Client(setup)
+  clientInstance = new elastic.Client(setup)
   return clientInstance
 }
 
@@ -40,13 +39,14 @@ const getById = async (index:string, id:string) => {
   const { body: { _source } } = await client().get({ index, id })
   return _source
 }
+
+const filterToAccess = (_:any, _2:any, _3:any) => [_, _2, _3]
 const getByIdChecked = async (
   index:string,
   id:string,
   authentication:AuthenticationDefinition,
-  auth:AuthInput,
-  manageFields:ManageableFields
-) => filterToAccess([await getById(index, id)], authentication, auth, manageFields)
+  auth:AuthInput
+) => filterToAccess([await getById(index, id)], authentication, auth)
 
 export const get = async <IN, OUT>(
   contract: ContractType<'GET', ES, IN, OUT>,
@@ -55,7 +55,7 @@ export const get = async <IN, OUT>(
   input?:IN
 ): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
-  const { manageFields, authentication: authDef } = contract
+  const { authentication: authDef } = contract
   const userIdFilter: any = {
     match: {
       createdBy: auth.sub || ''
@@ -67,10 +67,10 @@ export const get = async <IN, OUT>(
   if (Array.isArray(id)) {
     if (id.length === 0) return { result: ([] as any) }
     const { body: { docs } } = await client().mget({ index, body: { ids: id } })
-    return { result: filterToAccess(mapFilter(docs, (x: any) => x._source), authDef, auth, manageFields) as any }
+    return { result: filterToAccess(mapFilter(docs, (x: any) => x._source), authDef, auth) as any }
   } else if (id) {
     try {
-      const got = await getByIdChecked(index, id, authDef, auth, manageFields) as any[]
+      const got = await getByIdChecked(index, id, authDef, auth) as any[]
       if (got.length === 0) {
         return forbidden(id)
       }
@@ -122,11 +122,11 @@ export const post = async <IN, OUT>(
   body: IN): Promise<HandleResult<OUT>> => {
   const idNew = id || uuid()
   const newBody: any = { ...body }
-  if (contract.manageFields.id === true) { newBody.id = idNew }
+  // if (contract.manageFields.id === true) { newBody.id = idNew }
 
-  if (contract.manageFields.createdBy === true) {
-    newBody.createdBy = auth.sub
-  }
+  // if (contract.manageFields.createdBy === true) {
+  //   newBody.createdBy = auth.sub
+  // }
 
   try {
     await client().create({
@@ -163,7 +163,7 @@ export const del = async <IN, OUT>(
   }
   try {
     const result = await getByIdChecked(
-      index, id, contract.authentication, auth, contract.manageFields)
+      index, id, contract.authentication, auth)
     if (!result || result.length === 0) {
       return forbidden(id, ['Can\'t delete, unauthorized'])
     }
@@ -184,13 +184,13 @@ export const patch = async <IN, OUT>(
 ): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
   try {
-    const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
+    const result = await getByIdChecked(index, id, contract.authentication, auth)
     if (!result || result.length === 0) return forbidden({ id, body })
-    let newBody:any = body
-    if (contract.manageFields.createdBy === true) {
-      newBody = { ...(body as any) }
-      newBody.createdBy = result[0].createdBy
-    }
+    const newBody:any = body
+    // if (contract.manageFields.createdBy === true) {
+    //   newBody = { ...(body as any) }
+    //   newBody.createdBy = result[0].createdBy
+    // }
     await client().update({
       index,
       refresh: 'wait_for',
@@ -212,22 +212,21 @@ export const put = async <IN, OUT>(
 ): Promise<HandleResult<OUT>> => {
   const index = contract.implementation.index.toLowerCase()
   try {
-    const result = await getByIdChecked(index, id, contract.authentication, auth, contract.manageFields)
+    const result = await getByIdChecked(index, id, contract.authentication, auth)
 
     if (!result || result.length === 0) return forbidden({ id, body })
 
-    let newBody:any = body
-    if (contract.manageFields.createdBy === true) {
-      newBody = { ...(body as any) }
-      newBody.createdBy = result[0].createdBy
-    }
+    // if (contract.manageFields.createdBy === true) {
+    //  newBody = { ...(body as any) }
+    //  newBody.createdBy = result[0].createdBy
+    // }
 
     await client().index(
       {
         index,
         refresh: 'wait_for',
         id,
-        body: newBody
+        body
       })
     return { result: {} as any }
   } catch (error) {

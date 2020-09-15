@@ -1,7 +1,7 @@
 import test, { ExecutionContext } from 'ava'
-import { ContractType, ManageableFields, AuthenticationDefinition, AuthInput, HttpMethods, Implementation, HandleResult, HandleResultSuccess, isContractInError, HandleErrorResponse, Implementations, AnyContract } from './globalTypes.js'
+import { ContractType, AuthenticationDefinition, AuthInput, HttpMethods, Implementation, HandleResult, HandleResultSuccess, isContractInError, HandleErrorResponse, Implementations, AnyContract } from './globalTypes.js'
 import { Validation, generate, validate } from 'yaschva'
-import { AbstractBackend } from './backendAbstract.js'
+import { AbstractBackend, BackendMetadata, metadataValidation } from './backendAbstract.js'
 import { getProvider } from './backendProviders.js'
 import { createIndex } from './backendElasticsearch.js'
 import crypto from 'crypto'
@@ -91,7 +91,6 @@ export const mockHandle = async <METHOD extends HttpMethods, IMPL extends Implem
 }
 
 export const getContract = <T extends HttpMethods, IMPL extends Implementation = Implementations.manual, IN = TestContractIn, OUT = TestContractOut>(input: {
-  manageFields?: ManageableFields,
   authentication?: AuthenticationDefinition,
   name?: string,
   handle?: (input: IN, auth: AuthInput, contract: TestContractType<T, IMPL, IN, OUT>, id?: string) => Promise<HandleResult<OUT>>,
@@ -108,8 +107,7 @@ export const getContract = <T extends HttpMethods, IMPL extends Implementation =
     returns: input.returns || { id: 'string', b: 'string', c: ['?', 'string'] },
     handle: input.handle,
     type: (input.method || 'GET') as T,
-    name: input.name || 'test-contract',
-    manageFields: input.manageFields || {}
+    name: input.name || 'test-contract'
   }
 }
 
@@ -172,14 +170,14 @@ const implementations: {implementation: Implementation, skip: string[]}[] = [
       allowGetAll: true
     },
     skip: []
-  },
-  {
+  }
+  /* {
     implementation: {
       type: 'key-value',
       backend: 'memory',
       prefix: 'test'
     },
-    /** These tests are skipped since they relay on getting all records */
+    /** These tests are skipped since they relay on getting all records *//*
     skip: [
       'get id and input is optional',
       'get posted id and input is optional, all is returned',
@@ -188,7 +186,7 @@ const implementations: {implementation: Implementation, skip: string[]}[] = [
       'get with permissions: posted id and input is optional, all is returned for authorized user by userId',
       'get with permissions: posted id and input is optional, all is returned for authorized user by userId (with records from multiple users)'
     ]
-  }
+  } */
 ]
 
 export const baseDataSchema = { a: 'string', b: ['number', '?'] }
@@ -203,40 +201,40 @@ export const contractCollection = (): {contracts: CONTRACT_COLLECTION<Implementa
         method: 'POST',
         implementation,
         arguments: baseDataSchema,
-        returns: baseDataSchema
+        returns: metadataValidation
       }),
       get: getContract<'GET', typeof implementation, GET_INPUT, GET_OUTPUT>({
         method: 'GET',
         implementation,
         arguments: { id: ['string', '?', { $array: 'string' }] },
-        returns: { $array: baseDataSchema }
+        returns: { $array: { data: baseDataSchema, metadata: metadataValidation } }
       }),
       del: getContract({
         method: 'DELETE',
         implementation,
         arguments: {},
-        returns: {}
+        returns: { $array: metadataValidation }
       }),
       put: getContract({
         method: 'PUT',
         implementation,
         arguments: baseDataSchema,
-        returns: {}
+        returns: metadataValidation
       }),
       patch: getContract({
         method: 'PATCH',
         implementation,
         arguments: { a: ['?', 'string'], b: ['number', '?'] },
-        returns: {}
+        returns: metadataValidation
       })
     }
   })
 })
 
-export const postSome = async <A extends unknown>(db: AbstractBackend<any>,
-  contract: ContractType<'POST', any, any, A>,
+export const postSome = async (db: AbstractBackend<any>,
+  contract: ContractType<'POST', any, any, BackendMetadata>,
   authInput: AuthInput = {},
-  num: number = 20): Promise<HandleResult<A>[]> => {
+  num: number = 20): Promise<HandleResult<BackendMetadata>[]> => {
   const id = (i: number) => `my_id_${authInput?.sub || ''}${i}`
   return (await Promise.all(Array.from(Array(num))
     .map((_, i) => db.post(contract, authInput, id(i), generate(contract.arguments)))))

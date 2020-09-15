@@ -1,4 +1,3 @@
-import { AnyContract } from '../globalTypes.js'
 import { generate, validate } from 'yaschva'
 import { TestFn, runTestArray, ExpectGood, ExpectBad, contractCollection } from '../testHelpers.spec.js'
 
@@ -22,38 +21,20 @@ const getTests = ():[string, TestFn][] => {
       t.is(validate(c.post.returns, result.result).result, 'fail')
     }))
 
-  {
-    const withCreated = (c:AnyContract): AnyContract =>
-      ({
-        ...c,
-        returns: { ...(c.arguments as any), createdBy: 'string' },
-        manageFields: { createdBy: true }
-      })
+  test('manageFields createdBy: saved and added to result', ExpectGood(
+    (db, c) => db.post(c.post, { sub: 'userId' }, undefined, generate(c.post.arguments)),
+    (result, t, c) => { t.is(validate(c.post.returns, result.result).result, 'pass') }))
 
-    test('manageFields createdBy: saved and added to result', ExpectGood(
-      (db, c) => db.post(withCreated(c.post), { sub: 'userId' }, undefined, generate(withCreated(c.post).arguments)),
-      (result, t, c) => { t.is(validate(withCreated(c.post).returns, result.result).result, 'pass') }))
-  }
+  test('manageFields id: id is generated and saved and added to result', ExpectGood(
+    (db, c) => db.post(c.post, { sub: 'userId' }, undefined, generate(c.post.arguments)),
+    (result, t, c) => {
+      t.is(typeof result.result?.id, 'string')
+      t.is(validate(c.post.returns, result.result).result, 'pass')
+    }))
 
-  {
-    const withId = (c:AnyContract): AnyContract =>
-      ({
-        ...c,
-        returns: { ...(c.arguments as any), id: 'string' },
-        manageFields: { id: true }
-      })
-
-    test('manageFields id: id is generated and saved and added to result', ExpectGood(
-      (db, c) => db.post(withId(c.post), { sub: 'userId' }, undefined, generate(withId(c.post).arguments)),
-      (result, t, c) => {
-        t.is(typeof result.result?.id, 'string')
-        t.is(validate(withId(c.post).returns, result.result).result, 'pass')
-      }))
-
-    test('manageFields id: id is saved and added to result', ExpectGood(
-      (db, c) => db.post(withId(c.post), { sub: 'userId' }, 'itemId', generate(withId(c.post).arguments)),
-      (result, t) => { t.is(result.result?.id, 'itemId') }))
-  }
+  test('manageFields id: id is saved and added to result', ExpectGood(
+    (db, c) => db.post(c.post, { sub: 'userId' }, 'itemId', generate(c.post.arguments)),
+    (result, t) => { t.is(result.result?.id, 'itemId') }))
 
   return testsToRun
 }

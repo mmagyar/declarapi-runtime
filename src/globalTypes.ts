@@ -1,7 +1,6 @@
 import { ObjectType, Validation, ValidationResult } from 'yaschva'
 
 export type AuthenticationDefinition = (string | {createdBy: boolean})[] | boolean
-export type ManageableFields = { createdBy?: boolean, id?:boolean }
 
 export type HttpMethods = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type SearchTypes = 'textSearch' | 'full' | 'idOnly' | ObjectType;
@@ -29,10 +28,26 @@ export type Implementation =
   Implementations.elasticsearch |
   Implementations.keyValue)
 
+export type HandleErrorResponse ={
+    errorType: string
+    data?: any
+    status: number
+    errors: ValidationResult| string[]
+    result?: void
+  }
+
+export type HandleResultSuccess<OUT> = {
+    result: OUT
+    status?:number,
+    errors?: void
+    errorType?:void
+  }
+
+export type HandleResult<OUT> = HandleErrorResponse | HandleResultSuccess<OUT>;
+
 export type ContractType<METHOD extends HttpMethods, IMPL extends Implementation, IN, OUT> = {
   name: string
   type: METHOD
-  manageFields: ManageableFields,
   handle?: (input: IN, auth: AuthInput, contract:ContractType<METHOD, IMPL, IN, OUT>, id?:string) => Promise<HandleResult<OUT>>
   arguments: Validation
   returns: Validation
@@ -40,25 +55,6 @@ export type ContractType<METHOD extends HttpMethods, IMPL extends Implementation
   implementation: IMPL
 }
 export type AnyContract = ContractType<any, any, any, any>
-
-export type HandleErrorResponse ={
-  errorType: string
-  data?: any
-  status: number
-  errors: ValidationResult| string[]
-  result?: void
-}
-
-export type HandleResultSuccess<OUT> = {
-  result: OUT
-  status?:number,
-  cursor?:string
-  more?:boolean
-  errors?: void
-  errorType?:void
-}
-
-export type HandleResult<OUT> = HandleErrorResponse | HandleResultSuccess<OUT>;
 
 export const isContractInError = (tbd: HandleResult<any>): tbd is HandleErrorResponse =>
   Boolean(tbd.errors)

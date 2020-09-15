@@ -15,7 +15,7 @@ export const processHandle = <METHOD extends HttpMethods, IMPL extends Implement
   HandleType<OUT> =>
     async (body?:any, id?:string, user?:AuthInput):
       Promise<HandleResult<OUT>> => {
-      const { authentication, manageFields } = contract
+      const { authentication } = contract
 
       if (authentication) {
         if (!user?.sub) {
@@ -26,7 +26,7 @@ export const processHandle = <METHOD extends HttpMethods, IMPL extends Implement
           const perm: string[] = user.permissions || []
 
           const hasPerm = perm.some(y => authentication.some(z => z === y))
-          const canUserAccess = manageFields.createdBy
+          const canUserAccess = authentication.find(x => typeof x === 'string' ? false : x.createdBy)
           if (!hasPerm && !canUserAccess) {
             return errorStructure(403, 'forbidden', "You don't have permission to do this", { id })
           }

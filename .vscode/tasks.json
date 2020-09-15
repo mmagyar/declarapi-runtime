@@ -19,6 +19,17 @@
     },
     {
       "type": "npm",
+      "script": "watch",
+      "group": "build",
+      "problemMatcher": "$tsc-watch",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "revealProblems": "onProblem"
+      }
+    },
+    {
+      "type": "npm",
       "script": "build",
       "group": "build",
       "problemMatcher": [],
