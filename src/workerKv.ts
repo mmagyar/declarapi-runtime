@@ -15,11 +15,11 @@ const fetchLimited = async (
   try {
     const fetched = await fetch(url, init)
     if (fetched.status === 429) {
-      console.log('Rate Limited', Date.now() - now, fetched.headers, await fetched.json())
-      await delay()
+      console.log('Rate Limited', Date.now() - now)
+      await delay(5000)
       return fetchLimited(url, init, now)
     } else if (fetched.status === 404 && reTry) {
-      await delay(1500)
+      await delay(5000)
       return fetchLimited(url, init, nowOriginal, false)
     }
 

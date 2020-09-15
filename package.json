@@ -29,7 +29,7 @@
     "prepack": "npm run build && npm run build:commonjs",
     "build:commonjs": "tsc --module \"CommonJS\" -t \"es6\" --outDir \"./cjs\"",
     "test": "npm run build && npm run test:coverage",
-    "test:coverage": "c8 --all --exclude \"{**/*.spec.*,**/*.d.ts,cjs/**,coverage/**,**/index.*}\" --reporter=lcov --reporter=text --reporter=json ava --verbose",
+    "test:coverage": "c8 --all --exclude \"{**/*.spec.*,**/*.d.ts,cjs/**,coverage/**,**/index.*}\" --reporter=lcov --reporter=text --reporter=json ava --verbose --timeout=2m",
     "test:fast": "ava",
     "test:watch": "tsc-watch --onSuccess \"c8 --all --exclude \\\"{**/*.spec.*,**/*.d.ts,cjs/**,coverage/**}\\\" --reporter=lcov ava\"",
     "standard": "standardx **/*.ts",
